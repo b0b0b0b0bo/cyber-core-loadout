@@ -688,15 +688,6 @@ export function applyWeaponVariant(holder: THREE.Object3D, weapon: Weapon): void
       glowBox(0, 0.1, -0.45, 0.012, 0.012, 0.2);
       break;
     }
-    case 'heavy_sentry': {
-      // VOLT SENTRY — a turret canister loaded in the muzzle, tesla coil wraps and charge prongs
-      put(holder, M(cylZ(0.06, 0.06, 0.16, 18), steelMat), 0, 0.02, -0.72);
-      for (let i = 0; i < 4; i++) put(holder, M(ringZ(0.062, 0.006, 20), brassMat), 0, 0.02, -0.66 - i * 0.035);
-      glowSphere(0, 0.02, -0.81, 0.03);
-      around(4, 0.085, 0, 0.02, (x, y) => rod(new THREE.Vector3(x, y, -0.6), new THREE.Vector3(x * 1.2, 0.02 + (y - 0.02) * 1.2, -0.76), 0.004, steelMat), Math.PI / 4);
-      for (let i = 0; i < 5; i++) put(holder, M(ringZ(0.074, 0.005, 22), energyMat), 0, 0.02, -0.18 - i * 0.07);
-      break;
-    }
     case 'heavy_inferno': {
       // INFERNO ROAR — twin fuel tanks under the tube, pilot-light nozzle, heat-shield ribs
       [-1, 1].forEach((sx) => {

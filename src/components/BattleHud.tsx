@@ -180,6 +180,8 @@ export interface HudWeaponState {
   skillCooldownPct: number;
   rechargePct: number;
   isRechargeable: boolean;
+  /** 投擲系武器の場に出ている数 / 手元の数 (VOLT SENTRY・ORBITAL RONDO) */
+  throwInfo?: { label: string; cur: number; max: number } | null;
 }
 
 export const HudWeapon: React.FC<{
@@ -257,6 +259,7 @@ export const HudWeapon: React.FC<{
                 )}
               </div>
             </div>
+            {hud.throwInfo && <ThrowInfoRow info={hud.throwInfo} accent={accent} />}
             <div className="mt-2.5 h-[3px] bg-white/10 overflow-hidden">
               <div
                 className="h-full transition-[width] duration-75"
@@ -302,6 +305,7 @@ export const HudWeapon: React.FC<{
                 <span className="text-sm text-white/40">/{hud.maxAmmo}</span>
               </div>
             </div>
+            {hud.throwInfo && <ThrowInfoRow info={hud.throwInfo} accent={accent} />}
             <div className="mt-2 flex items-center gap-2">
               <div className="flex-1 h-[3px] bg-white/10 overflow-hidden">
                 <div className="h-full bg-amber-300" style={{ width: hud.ammo < hud.maxAmmo ? `${hud.rechargePct * 100}%` : '100%' }} />
@@ -370,7 +374,7 @@ export const HudWeapon: React.FC<{
             <Key k="L" t="3段攻撃(長押し可)" /> <Key k="R" t="防御" /> <Key k="R+L" t="技" />
           </>
         ) : weapon.modelType === 'dynamite' ? (
-          <Key k="L" t="投擲" />
+          <Key k="L" t="長押しで軌道表示 / 離して投擲" />
         ) : (
           <>
             <Key k="L" t="射撃" /> <Key k="R" t="ADS" /> <Key k="R" t="リロード" kb />
@@ -380,6 +384,19 @@ export const HudWeapon: React.FC<{
     </Glass>
   );
 };
+
+/** 投擲系武器の「設置中 / 手元」の数を示す小さな行 */
+const ThrowInfoRow: React.FC<{ info: { label: string; cur: number; max: number }; accent: string }> = ({ info, accent }) => (
+  <div className="mt-2 flex items-center justify-between text-[9px] font-cyber tracking-[0.25em]">
+    <span className="text-white/50">{info.label}</span>
+    <span className="flex items-center gap-1.5">
+      {Array.from({ length: info.max }, (_, i) => (
+        <span key={i} className="w-2.5 h-2.5 rotate-45 border" style={{ borderColor: accent, background: i < info.cur ? accent : 'transparent' }} />
+      ))}
+      <span className="font-black tabular-nums text-white ml-1">{info.cur}/{info.max}</span>
+    </span>
+  </div>
+);
 
 const Key: React.FC<{ k: string; t: string; kb?: boolean }> = ({ k, t, kb }) => (
   <span className="flex items-center gap-1">

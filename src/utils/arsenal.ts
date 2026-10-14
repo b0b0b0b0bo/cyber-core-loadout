@@ -226,8 +226,35 @@ interface NeedleStack {
   spikes: THREE.Object3D[];
 }
 
+/** 1人が同時に設置できる VOLT SENTRY の数 */
+export const MAX_TURRETS = 3;
 const CHRONO_DELAY = 1.2;
 const NEEDLE_LIFE = 3.0;
+
+/** 畳まれたタレット (投擲中 / 手持ち用の見た目)。脚と放電マストを折りたたんだ筒状 */
+export function foldedTurretMesh(): THREE.Group {
+  const g = new THREE.Group();
+  const steel = new THREE.MeshStandardMaterial({ color: 0x475569, metalness: 0.8, roughness: 0.3 });
+  const coil = new THREE.MeshStandardMaterial({ color: 0xb45309, metalness: 0.9, roughness: 0.3 });
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.12, 0.38, 10), steel);
+  body.rotation.x = Math.PI / 2;
+  g.add(body);
+  for (let i = 0; i < 3; i++) {
+    const c = new THREE.Mesh(new THREE.TorusGeometry(0.105, 0.016, 6, 14), coil);
+    c.position.z = -0.1 + i * 0.1;
+    g.add(c);
+  }
+  // 畳まれた脚 (本体に沿って寝ている)
+  [-1, 1].forEach((s) => {
+    const leg = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.03, 0.3), steel);
+    leg.position.set(s * 0.12, -0.04, 0);
+    g.add(leg);
+  });
+  const tip = new THREE.Mesh(new THREE.SphereGeometry(0.06, 10, 8), new THREE.MeshBasicMaterial({ color: 0xc7d2fe }));
+  tip.position.z = -0.22;
+  g.add(tip);
+  return g;
+}
 
 export class Arsenal {
   private scene: THREE.Scene;
@@ -528,8 +555,7 @@ export class Arsenal {
       }
       case 'canister': {
         const steel = new THREE.MeshStandardMaterial({ color: 0x475569, metalness: 0.8, roughness: 0.3 });
-        g.add(new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.42, 10), steel));
-        g.add(new THREE.Mesh(new THREE.TorusGeometry(0.17, 0.025, 6, 16), new THREE.MeshBasicMaterial({ color: 0x818cf8 })));
+        g.add(foldedTurretMesh());
         break;
       }
     }
@@ -559,9 +585,19 @@ export class Arsenal {
     this.addBolt('beacon', origin, dir.clone().multiplyScalar(62).add(new THREE.Vector3(0, 2.5, 0)), 14, dmg, 3.0, 0.4);
     ctx.sfx.heavy();
   }
+  /** 投げて飛行中の円月輪の数 (ORBITAL RONDO) */
+  get chakramsThrown() {
+    return this.chakrams.filter((c) => c.mode === 'throw').length;
+  }
+  /** 現在設置中の VOLT SENTRY の数 */
+  get turretCount() {
+    return this.turrets.length;
+  }
   deploySentry(ctx: ArsenalCtx, origin: THREE.Vector3, dir: THREE.Vector3, dmg: number) {
     const flat = dir.clone().setY(0).normalize();
-    this.addBolt('canister', origin, flat.multiplyScalar(15).add(new THREE.Vector3(0, 7 + dir.y * 6, 0)), 22, dmg, 4, 0.3);
+    void flat;
+    // ダイナマイトと同じ放物線 (予測線と一致させる)
+    this.addBolt('canister', origin, dir.clone().multiplyScalar(22).add(new THREE.Vector3(0, 7, 0)), 25, dmg, 4, 0.3);
     ctx.sfx.heavy();
   }
 
@@ -1148,8 +1184,10 @@ export class Arsenal {
 
   // ───────────────────────── VOLT SENTRY ─────────────────────────
   private spawnTurret(ctx: ArsenalCtx, at: THREE.Vector3, dmg: number) {
-    if (this.turrets.length >= 2) {
+    // 設置できるのは MAX_TURRETS 基まで。超えたら最も古い1基が壊れる
+    while (this.turrets.length >= MAX_TURRETS) {
       const old = this.turrets.shift()!;
+      ctx.sparks(old.pos.clone().setY(1), '#f87171', 14);
       disposeObj(this.scene, old.mesh);
     }
     const g = new THREE.Group();
@@ -1526,4 +1564,4 @@ export class Arsenal {
 }
 
 /** Weapons whose shots are handled by the Arsenal instead of the classic bullet list. */
-export const ARSENAL_GUNS = new Set(['sub_chrono', 'sub_hive', 'sub_flare', 'main_needler', 'main_sonic', 'main_buzzsaw', 'heavy_meteor', 'heavy_sentry', 'heavy_inferno']);
+export const ARSENAL_GUNS = new Set(['sub_chrono', 'sub_hive', 'sub_flare', 'main_needler', 'main_sonic', 'main_buzzsaw', 'heavy_meteor', 'heavy_inferno']);

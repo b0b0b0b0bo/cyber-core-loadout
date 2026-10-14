@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { Weapon } from '../types';
 import { applyWeaponVariant } from './weaponVariants';
+import { foldedTurretMesh } from './arsenal';
 
 /**
  * First-person (battle) weapon model. Single source of truth: the battle scene
@@ -1135,6 +1136,12 @@ export function populateBattleWeaponModel(holder: THREE.Object3D, weapon: Weapon
     put(holder, M(rb(0.04, 0.02, 0.03, 0.005), gunMat), 0, 0.1, -0.02);
 
     // ═════════════════════ 12. DYNAMITE BUNDLE ═════════════════════
+  } else if (weapon.id === 'heavy_sentry') {
+    // VOLT SENTRY: 畳まれたタレットを片手で持つ (投げて設置する)
+    const sentry = foldedTurretMesh();
+    sentry.scale.setScalar(1.25);
+    sentry.rotation.x = -0.4;
+    holder.add(sentry);
   } else if (weapon.modelType === 'dynamite') {
     const dynGroup = new THREE.Group();
     const paperMat = new THREE.MeshStandardMaterial({ color: 0xb91c1c, metalness: 0.15, roughness: 0.55 });

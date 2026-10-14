@@ -29,7 +29,7 @@ import {
 } from '../utils/meleeStyles';
 import { buildMeleeSwingFx, buildMeleeHitFx, buildHammerChargeFx, buildHammerSlamFx, buildMeleeChargeFx, buildSlashWaveFx, setFxLightProvider } from '../utils/meleeFx';
 import { WeaponTrail, findTrailAnchors } from '../utils/weaponTrail';
-import { Arsenal, ArsenalCtx, ARSENAL_GUNS } from '../utils/arsenal';
+import { Arsenal, ArsenalCtx, ARSENAL_GUNS, MAX_TURRETS } from '../utils/arsenal';
 import { populateBattleWeaponModel, AKIMBO_HAND_X, updateChainsawChain } from '../utils/battleWeaponModel';
 import { bossKindOf, buildBossModel, animateBoss, BossKind } from '../utils/bossModels';
 import { createRig, animateEnemy, animateBossMotion, EnemyRig } from '../utils/enemyAnimation';
@@ -2396,6 +2396,7 @@ export const BattleScene3D: React.FC<BattleScene3DProps> = ({
   const rechargeTimersRef = useRef<Record<number, number>>({}); // スロットごとのタイマー (持っていなくても回復)
   const grenadeAimRef = useRef(false); // 投擲物: 長押し中 (予測線表示)
   const dynamiteProjectilesRef = useRef<DynamiteProjectile[]>([]);
+  const throwSigRef = useRef(-1);
 
   // React UI state
   const [isPaused, setIsPaused] = useState(false);
@@ -2436,6 +2437,7 @@ export const BattleScene3D: React.FC<BattleScene3DProps> = ({
     skillCooldownPct: 0,
     rechargePct: 0,
     isRechargeable: false,
+    throwInfo: null as { label: string; cur: number; max: number } | null,
     boss: null as { name: string; hp: number; maxHp: number; phase: number } | null,
   });
 
@@ -2733,6 +2735,15 @@ export const BattleScene3D: React.FC<BattleScene3DProps> = ({
     const skillCooldownRemaining = Math.max(0, skillCooldownUntilRef.current - now);
     const skillCooldownPct = Math.min(1, skillCooldownRemaining / MELEE_CHARGE_SKILL_COOLDOWN);
 
+    // 投擲系の武器の「いま場に出ている数 / 持ち手に残っている数」
+    const throwInfoOf = (weaponId: string): { label: string; cur: number; max: number } | null => {
+      const ars = arsenalRef.current;
+      if (!ars) return null;
+      if (weaponId === 'heavy_sentry') return { label: 'DEPLOYED', cur: ars.turretCount, max: MAX_TURRETS };
+      if (weaponId === 'blade_disc') return { label: 'IN HAND', cur: Math.max(0, 2 - ars.chakramsThrown), max: 2 };
+      return null;
+    };
+
     const baseRecharge = (w.rechargeTime ?? 6.0) / (1 + (passivesRef.current.rechargeSpeedMultiplier - 1));
     const rechargePct =
       w.isRechargeable || w.modelType === 'dynamite'
@@ -2779,6 +2790,7 @@ export const BattleScene3D: React.FC<BattleScene3DProps> = ({
       skillCooldownPct,
       rechargePct,
       isRechargeable: !!(w.isRechargeable || w.modelType === 'dynamite'),
+      throwInfo: throwInfoOf(w.id),
     });
   }, [getActiveWeapon]);
 
@@ -5712,7 +5724,7 @@ export const BattleScene3D: React.FC<BattleScene3DProps> = ({
       const curAmmo = ammoStockRef.current[curSlot] ?? activeW.stats.maxAmmo;
       if (curAmmo <= 0) {
         sound.playDefeat();
-        setAnnouncement('RECHARGING DYNAMITE...');
+        setAnnouncement(activeW.id === 'heavy_sentry' ? 'RECHARGING VOLT SENTRY...' : 'RECHARGING DYNAMITE...');
         return;
       }
 
@@ -5722,11 +5734,26 @@ export const BattleScene3D: React.FC<BattleScene3DProps> = ({
       ammoStockRef.current[curSlot] = curAmmo - 1;
       syncHudState();
       sound.playHeavyLaunch();
-      setAnnouncement('DYNAMITE THROWN!');
+      const isSentryThrow = activeW.id === 'heavy_sentry';
+      setAnnouncement(isSentryThrow ? 'VOLT SENTRY THROWN!' : 'DYNAMITE THROWN!');
 
       // Trigger smooth procedural dynamite throw windup & toss animation
       viewmodelAnimRef.current.throwActive = true;
       viewmodelAnimRef.current.throwProgress = 0.0;
+
+      // VOLT SENTRY: 畳まれたタレットを投げ、着地点で展開する (設置数の上限は arsenal 側で管理)
+      if (isSentryThrow) {
+        const ars = arsenalRef.current;
+        const actx = arsenalCtxRef.current;
+        const cam = cameraRef.current;
+        if (ars && actx && cam) {
+          const dir = new THREE.Vector3();
+          cam.getWorldDirection(dir);
+          const dmg = activeW.stats.damage * getWeaponDamageMultiplier(activeW.id) * passivesRef.current.rangedDamageMultiplier;
+          ars.deploySentry(actx, cam.position.clone().addScaledVector(dir, 0.6), dir, dmg);
+        }
+        return;
+      }
 
       if (sceneRef.current && cameraRef.current) {
         const origin = cameraRef.current.position.clone();
@@ -5916,9 +5943,6 @@ export const BattleScene3D: React.FC<BattleScene3DProps> = ({
             break;
           case 'heavy_meteor':
             ars.fireMeteorBeacon(actx, muzzle, aim, dmg);
-            break;
-          case 'heavy_sentry':
-            ars.deploySentry(actx, muzzle, aim, dmg);
             break;
           case 'heavy_inferno':
             ars.sprayInferno(actx, muzzle.clone().addScaledVector(forwardDir, 0.25), forwardDir.clone(), dmg);
@@ -8368,7 +8392,7 @@ export const BattleScene3D: React.FC<BattleScene3DProps> = ({
             rechargeTimersRef.current[rs] = 0;
             ammoStockRef.current[rs] = curA + 1;
             sound.playScan();
-            setAnnouncement('DYNAMITE RECHARGED [+1]');
+            setAnnouncement(rw.id === 'heavy_sentry' ? 'VOLT SENTRY RECHARGED [+1]' : 'DYNAMITE RECHARGED [+1]');
             if (rs !== curSlot) syncHudState();
           } else {
             rechargeTimersRef.current[rs] = t;
@@ -8378,6 +8402,16 @@ export const BattleScene3D: React.FC<BattleScene3DProps> = ({
         }
       }
       rechargeTimerRef.current = rechargeTimersRef.current[curSlot] ?? 0;
+
+      // 設置数・手元の円月輪数が変わったらHUDを更新する
+      {
+        const ars = arsenalRef.current;
+        const sig = ars ? (curW.id === 'heavy_sentry' ? ars.turretCount : curW.id === 'blade_disc' ? ars.chakramsThrown : -1) : -1;
+        if (sig !== throwSigRef.current) {
+          throwSigRef.current = sig;
+          syncHudState();
+        }
+      }
 
       // 投擲物の予測線 (長押し中のみ表示 / 離すとこの軌道で投げる)
       {
@@ -8428,7 +8462,7 @@ export const BattleScene3D: React.FC<BattleScene3DProps> = ({
           grenadeAimLine.geometry.setDrawRange(0, n);
           grenadeAimLine.visible = true;
           grenadeAimRing!.position.set(gp.x, 0.12, gp.z);
-          grenadeAimRing!.visible = true;
+          grenadeAimRing!.visible = aimW.id !== 'heavy_sentry'; // 爆風半径リングはダイナマイト用
         } else if (grenadeAimLine) {
           grenadeAimLine.visible = false;
           grenadeAimRing!.visible = false;
