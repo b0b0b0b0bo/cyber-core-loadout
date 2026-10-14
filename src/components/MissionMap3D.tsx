@@ -19,6 +19,8 @@ import {
   FlaskConical,
   Waves,
   Mountain,
+  Snowflake,
+  Trees,
   FileText,
   Crosshair,
   Gift,
@@ -35,7 +37,14 @@ const MAP_ICONS: Record<number, React.ReactNode> = {
   3: <FlaskConical className="w-5 h-5" />,
   4: <Waves className="w-5 h-5" />,
   5: <Mountain className="w-5 h-5" />,
+  6: <Snowflake className="w-5 h-5" />,
+  7: <Trees className="w-5 h-5" />,
 };
+
+/** World-map districts: a shallow zig-zag centred on the origin, one spot per map (so adding a map needs no layout edit). */
+const WORLD_SPACING = 1.9;
+const WORLD_ZIGZAG = [1.6, -1.8, 1.0, -2.0, 1.4, -1.6, 1.1, -1.9];
+const worldSpots: [number, number][] = WORLD_MAPS.map((_, i) => [(i - (WORLD_MAPS.length - 1) / 2) * WORLD_SPACING, WORLD_ZIGZAG[i % WORLD_ZIGZAG.length]]);
 
 /** Ground-plane scale applied to Mission.mapCoords (x, z). Height comes from mapCoords[1]. */
 const COORD_SCALE = 1.3;
@@ -165,7 +174,13 @@ export const MissionMap3D: React.FC<MissionMap3DProps> = ({ missions, baseMissio
     scene.fog = new THREE.FogExp2(HUD.three.fog, isWorld ? 0.035 : 0.045);
 
     const camera = new THREE.PerspectiveCamera(38, width / height, 0.1, 100);
-    const camBase = isWorld ? new THREE.Vector3(0, 8.6, 11.8) : new THREE.Vector3(0, 7.0, 9.4);
+    // world view: pull the camera back until the outermost district (plus its ~1.7-unit-wide label) fits the canvas width
+    const worldDist = (() => {
+      const halfW = ((WORLD_MAPS.length - 1) / 2) * WORLD_SPACING + 2.4;
+      const tanH = Math.tan((38 * Math.PI) / 360) * (width / height);
+      return Math.max(16.6, halfW / tanH);
+    })();
+    const camBase = isWorld ? new THREE.Vector3(0, 0.568, 0.823).multiplyScalar(worldDist) : new THREE.Vector3(0, 7.0, 9.4);
     const camTarget = isWorld ? new THREE.Vector3(0, 0.4, -0.4) : new THREE.Vector3(-0.7, 0.9, -0.9);
     camera.position.copy(camBase);
     camera.lookAt(camTarget);
@@ -292,6 +307,14 @@ export const MissionMap3D: React.FC<MissionMap3DProps> = ({ missions, baseMissio
           // silent wastes: crystal shards and leaning obelisks
           if (kind < 0.6) addBuilding(parent, new THREE.ConeGeometry(Math.max(w, d) * 0.4, h * 0.9, 5), x, h + h * 0.45, z, ry);
           else addBuilding(parent, new THREE.CylinderGeometry(0.01, w * 0.3, h * 1.2, 4), x + w * 0.5, h * 0.6, z, ry);
+        } else if (style === 6) {
+          // frozen archive: hexagonal ice towers with frosted caps and shards
+          if (kind < 0.55) addBuilding(parent, new THREE.ConeGeometry(Math.max(w, d) * 0.5, h * 0.7, 6), x, h + h * 0.35, z, ry);
+          else if (kind < 0.8) addBuilding(parent, new THREE.CylinderGeometry(w * 0.2, w * 0.35, h * 1.1, 6), x + w * 0.5, h * 0.55, z, ry);
+        } else if (style === 7) {
+          // overgrown sector: giant mushroom caps, tall trunks and leafy crowns
+          if (kind < 0.45) addBuilding(parent, new THREE.SphereGeometry(Math.max(w, d) * 0.85, 10, 5, 0, Math.PI * 2, 0, Math.PI / 2), x, h * 0.95, z, 0);
+          else if (kind < 0.8) addBuilding(parent, new THREE.IcosahedronGeometry(Math.max(w, d) * 0.7, 0), x, h + Math.max(w, d) * 0.45, z, ry);
         } else {
           // research: domes and silos
           if (kind < 0.4) addBuilding(parent, new THREE.SphereGeometry(Math.min(w, d) * 0.55, 8, 4, 0, Math.PI * 2, 0, Math.PI / 2), x, h, z, 0);
@@ -447,14 +470,7 @@ export const MissionMap3D: React.FC<MissionMap3DProps> = ({ missions, baseMissio
     };
 
     if (isWorld) {
-      // map districts laid out along a shallow zig-zag so more can be added
-      const spots: [number, number][] = [
-        [-3.5, 1.5],
-        [-1.75, -1.6],
-        [0.0, 0.9],
-        [1.75, -1.7],
-        [3.5, 1.2],
-      ];
+      const spots = worldSpots;
       WORLD_MAPS.forEach((wm, i) => {
         const [x, z] = spots[i] ?? [0, 0];
         const locked = isMapLocked(wm.id);

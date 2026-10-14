@@ -36,6 +36,7 @@ import { bossKindOf, buildBossModel, animateBoss, BossKind } from '../utils/boss
 import { createRig, animateEnemy, animateBossMotion, EnemyRig } from '../utils/enemyAnimation';
 import { buildEliteEnemy, isEliteType } from '../utils/eliteEnemyModels';
 import { buildApexEnemy, isApexType } from '../utils/apexEnemyModels';
+import { buildBloomEnemy, isBloomType } from '../utils/bloomEnemyModels';
 import { updateApexEnemy, isApexCategory, apexDamageGate, apexOnDeath } from '../utils/apexEnemyAI';
 import { CombatHazards, HurtFn } from '../utils/combatHazards';
 import { updateEliteEnemy, isEliteCategory, isFlyingCategory, disposeEnemyAux, CombatCtx, EnemyBulletSpec } from '../utils/eliteEnemyAI';
@@ -96,6 +97,15 @@ const ENEMY_BASE_CATEGORY: Record<string, EnemyCategory> = {
   boss_kraken: 'boss',
   boss_warden: 'boss',
   boss_frost: 'boss',
+  boss_myco: 'boss',
+  // MAP 7 (OVERGROWN SECTOR): plant units borrow the AI of a base category
+  bramble: 'hound',
+  mushling: 'hound',
+  pollen: 'drone',
+  creeper: 'stalker',
+  thistle: 'sentry',
+  treant: 'golem',
+  rafflesia: 'titan',
 };
 const baseCategoryOf = (typeId: string): EnemyCategory =>
   ENEMY_BASE_CATEGORY[typeId] ?? (typeId as EnemyCategory);
@@ -564,7 +574,7 @@ export interface StageEnvironmentTheme {
   nameJa: string;
   subName: string;
   scenery: SceneryId;
-  style: 'apartments' | 'sanctuary' | 'foundry' | 'cathedral' | 'spire' | 'dock' | 'monolith' | 'omega' | 'abyss' | 'relic' | 'cryo';
+  style: 'apartments' | 'sanctuary' | 'foundry' | 'cathedral' | 'spire' | 'dock' | 'monolith' | 'omega' | 'abyss' | 'relic' | 'cryo' | 'overgrow';
 }
 
 export function getStageTheme(missionId: string): StageEnvironmentTheme {
@@ -1070,6 +1080,92 @@ export function getStageTheme(missionId: string): StageEnvironmentTheme {
         subName: 'CRYSTAL VAULT // SECTOR 42 [MAP 6 BOSS]',
         scenery: 'frostvault',
         style: 'cryo',
+      };
+
+    // ================= MAP 7: OVERGROWN SECTOR =================
+    case 'm25_canopy':
+      return {
+        floorRoughness: 0.75,
+        floorMetalness: 0.1,
+        gridMain: 0x84cc16,
+        gridSub: 0xd9f99d,
+        accentColor: 0x84cc16,
+        nameJa: '樹冠回廊の突破',
+        subName: 'CANOPY CORRIDOR // SECTOR 43',
+        scenery: 'canopy',
+        style: 'overgrow',
+      };
+    case 'm25b_greenhouse':
+      return {
+        floorRoughness: 0.45,
+        floorMetalness: 0.2,
+        gridMain: 0x4ade80,
+        gridSub: 0xbbf7d0,
+        accentColor: 0x4ade80,
+        nameJa: '温室ドームの制圧',
+        subName: 'GREENHOUSE DOME // SECTOR 44',
+        scenery: 'greenhouse',
+        style: 'overgrow',
+      };
+    case 'm26_mycelium':
+      return {
+        floorRoughness: 0.7,
+        floorMetalness: 0.1,
+        gridMain: 0x2dd4bf,
+        gridSub: 0xa7f3d0,
+        accentColor: 0x2dd4bf,
+        nameJa: '菌糸洞の探索',
+        subName: 'MYCELIUM CAVERN // SECTOR 45',
+        scenery: 'mycelium',
+        style: 'overgrow',
+      };
+    case 'm26b_swamp':
+      return {
+        floorRoughness: 0.35,
+        floorMetalness: 0.25,
+        gridMain: 0xa3e635,
+        gridSub: 0x5eead4,
+        accentColor: 0xa3e635,
+        nameJa: '胞子沼地の防衛',
+        subName: 'SPORE SWAMP // SECTOR 46',
+        scenery: 'swamp',
+        style: 'overgrow',
+      };
+    case 'm27_rootworks':
+      return {
+        floorRoughness: 0.6,
+        floorMetalness: 0.3,
+        gridMain: 0xfbbf24,
+        gridSub: 0xbef264,
+        accentColor: 0xfbbf24,
+        nameJa: '根の機関区の攻略',
+        subName: 'ROOTWORKS // SECTOR 47',
+        scenery: 'rootworks',
+        style: 'overgrow',
+      };
+    case 'm27b_bloom':
+      return {
+        floorRoughness: 0.7,
+        floorMetalness: 0.1,
+        gridMain: 0xf472b6,
+        gridSub: 0xfde68a,
+        accentColor: 0xf472b6,
+        nameJa: '開花の丘の突破',
+        subName: 'BLOOM HILL // SECTOR 48',
+        scenery: 'bloomhill',
+        style: 'overgrow',
+      };
+    case 'm28_myco_boss':
+      return {
+        floorRoughness: 0.5,
+        floorMetalness: 0.2,
+        gridMain: 0xa3e635,
+        gridSub: 0xf0abfc,
+        accentColor: 0xa3e635,
+        nameJa: '菌糸の聖域：菌王機マイコキング',
+        subName: 'MYCELIUM THRONE // SECTOR 49 [MAP 7 BOSS]',
+        scenery: 'mycothrone',
+        style: 'overgrow',
       };
 
     case 'm12_omega_boss':
@@ -1599,6 +1695,9 @@ const STAGE_DIFFICULTY: Record<string, number> = {
   // MAP 6: Frozen Archive
   m21_outskirts: 6.00, m21b_cryobay: 6.16, m22_stacks: 6.32, m22b_servers: 6.48,
   m23_echohall: 6.64, m23b_conduit: 6.80, m24_frost_boss: 7.05,
+  // MAP 7: Overgrown Sector
+  m25_canopy: 7.30, m25b_greenhouse: 7.47, m26_mycelium: 7.64, m26b_swamp: 7.81,
+  m27_rootworks: 7.98, m27b_bloom: 8.15, m28_myco_boss: 8.40,
 };
 
 /** ハードモード: 同じMAP内の同じ位置のステージから3MAP(=21ステージ)先の難易度になる */
@@ -1630,6 +1729,8 @@ export function buildEnemyModel(type: string, group: THREE.Group): { hp: number;
   if (elite) return elite;
   const apex = buildApexEnemy(type, group);
   if (apex) return apex;
+  const bloom = buildBloomEnemy(type, group);
+  if (bloom) return bloom;
   const std = (color: number, metalness = 0.82, roughness = 0.38) => new THREE.MeshStandardMaterial({ color, metalness, roughness });
   const glow = (color: number) => new THREE.MeshBasicMaterial({ color });
   const halo = (color: number, opacity = 0.28) => new THREE.MeshBasicMaterial({
@@ -2181,7 +2282,7 @@ function createEnemyInstance(
   const { hp, speed, damage } = buildEnemyModel(enDef.enemyTypeId, group);
 
   // Apply archetype-specific procedural surface textures to solid enemy armor (elites carry their own).
-  const elite = isEliteType(enDef.enemyTypeId) || isApexType(enDef.enemyTypeId);
+  const elite = isEliteType(enDef.enemyTypeId) || isApexType(enDef.enemyTypeId) || isBloomType(enDef.enemyTypeId);
   const enemyTexture = elite || isBossDef ? null : createEnemySurfaceTexture(enDef.enemyTypeId);
   if (enemyTexture) group.traverse((obj) => {
     if (!(obj instanceof THREE.Mesh)) return;
@@ -2275,7 +2376,7 @@ function createEnemyInstance(
       ? 2.3
       : enDef.enemyTypeId === 'splitling'
       ? 1.2
-      : enDef.enemyTypeId === 'mite'
+      : enDef.enemyTypeId === 'mite' || enDef.enemyTypeId === 'mushling'
       ? 0.9
       : baseType === 'titan'
       ? 3.9
@@ -7114,14 +7215,14 @@ export const BattleScene3D: React.FC<BattleScene3DProps> = ({
       const living = enemiesRef.current.reduce((n, e) => n + (e.isDead ? 0 : 1), 0);
       if (living >= 45) return null;
       const inst = createEnemyInstance(
-        { enemyTypeId: type, name: type === 'mite' ? 'Hive Mite' : type === 'splitling' ? 'Splitling' : type === 'pylon' ? 'Tesla Pylon' : type === 'mirage_echo' ? 'Mirage Echo' : type.toUpperCase(), count: 1, description: '' },
+        { enemyTypeId: type, name: type === 'mite' ? 'Hive Mite' : type === 'mushling' ? 'Brood Mushling' : type === 'splitling' ? 'Splitling' : type === 'pylon' ? 'Tesla Pylon' : type === 'mirage_echo' ? 'Mirage Echo' : type.toUpperCase(), count: 1, description: '' },
         scene,
         coverObjectsRef.current,
         getMissionDifficultyMultiplier(mission, hard),
         at,
       );
       if (owner) inst.ai = { owner };
-      if (type === 'mite' || type === 'splitling' || type === 'pylon') {
+      if (type === 'mite' || type === 'splitling' || type === 'pylon' || type === 'mushling') {
         inst.scrapValue = Math.min(inst.scrapValue, 6);
         inst.scoreValue = Math.round(inst.scoreValue * 0.3);
       }
@@ -10006,7 +10107,7 @@ export const BattleScene3D: React.FC<BattleScene3DProps> = ({
           });
 
           // BEACON は稀にドロップ (強い敵ほど出やすい)
-          const beaconChance = enemy.typeId === 'mite' ? 0 : BEACON_DROP_CHANCE[enemy.category] ?? 0.03;
+          const beaconChance = enemy.typeId === 'mite' || enemy.typeId === 'mushling' ? 0 : BEACON_DROP_CHANCE[enemy.category] ?? 0.03;
           if (Math.random() < beaconChance) {
             const beaconMesh = new THREE.Mesh(
               new THREE.OctahedronGeometry(0.35, 0),

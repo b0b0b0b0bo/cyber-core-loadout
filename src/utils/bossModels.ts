@@ -12,7 +12,7 @@ import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeom
  * enrage colour shift per phase.
  */
 
-export type BossKind = 'golgotha' | 'golem' | 'titan' | 'kraken' | 'warden' | 'frost';
+export type BossKind = 'golgotha' | 'golem' | 'titan' | 'kraken' | 'warden' | 'frost' | 'myco';
 export const BOSS_SCALE = 1.8;
 
 export const bossKindOf = (typeId: string): BossKind | null =>
@@ -22,6 +22,7 @@ export const bossKindOf = (typeId: string): BossKind | null =>
     : typeId === 'boss_kraken' ? 'kraken'
     : typeId === 'boss_warden' ? 'warden'
     : typeId === 'boss_frost' ? 'frost'
+    : typeId === 'boss_myco' ? 'myco'
     : null;
 
 export interface BossStats {
@@ -37,6 +38,7 @@ export const BOSS_STATS: Record<BossKind, BossStats> = {
   kraken: { hp: 6200, speed: 3.3, damage: 66 },
   warden: { hp: 7000, speed: 3.9, damage: 70 },
   frost: { hp: 7600, speed: 4.2, damage: 72 },
+  myco: { hp: 8200, speed: 3.9, damage: 74 },
 };
 
 interface BossRefs {
@@ -999,6 +1001,193 @@ function buildFrost(rig: THREE.Group): BossRefs {
   return k.refs;
 }
 
+// ───────────────────────── MYCO KING (overgrown sector throne) ─────────────────────────
+// Mushroom-king walker: bark-armoured stem, steel face plate, a huge glowing cap that hangs brood sacs under its gills.
+function buildMyco(rig: THREE.Group): BossRefs {
+  const k = createKit('myco', rig, 0xff4d6d);
+  const { armor, solid, glow, halo, rbox, cyl, sph, cone, torus, mk, grp, V, strut, cable, spin, orbit, pulse, sway } = k;
+  const texBark = panelTexture('#4a3420', '#a98c5a', 5);
+  const texCap = panelTexture('#8a3a10', '#fbbf24', 4);
+  const texStem = panelTexture('#cfc6a4', '#fffbe6', 4);
+  const texSteel = panelTexture('#16241d', '#6b8a78', 5);
+  const bark = armor(0x8a6a44, texBark, 0.1, 0.8);
+  const capM = armor(0xb8390c, texCap, 0.2, 0.55);
+  capM.side = THREE.DoubleSide;
+  const stemM = armor(0xeee6cc, texStem, 0.15, 0.6);
+  const steel = armor(0x38503f, texSteel, 0.6, 0.4);
+  const black = solid(0x040a07, 0.4, 0.6);
+  const moss = solid(0x4d7c0f, 0.05, 0.85);
+  const leaf = solid(0x65a30d, 0.1, 0.6);
+  const cream = solid(0xfff3c4, 0.1, 0.5);
+  const lime = glow(0xa3e635, true);
+  const limeSoft = glow(0xd9f99d, true);
+  const spore = glow(0xfde047, true);
+  const orient = (o: THREE.Object3D, dir: THREE.Vector3) => o.quaternion.setFromUnitVectors(V(0, 1, 0), dir.clone().normalize());
+  /** Cone with its base at a and its tip at b. */
+  const spike = (parent: THREE.Object3D, a: THREE.Vector3, b: THREE.Vector3, r: number, mat: THREE.Material, seg = 5) => {
+    const dir = new THREE.Vector3().subVectors(b, a);
+    const m = mk(parent, cone(r, dir.length(), seg), mat);
+    m.position.copy(a).addScaledVector(dir, 0.5);
+    orient(m, dir);
+    return m;
+  };
+
+  // ── six root legs (same lift rig as the other walkers) ──
+  const leg = (a: number, hipR: number, len: number, ph: number) => {
+    const root = grp(rig, Math.sin(a) * hipR, 2.7, -Math.cos(a) * hipR, 0, -a, 0);
+    const lift = grp(root);
+    k.refs.lifts.push({ obj: lift, idx: k.refs.lifts.length, front: Math.abs(a) < Math.PI / 2, side: Math.sign(a) || 1 });
+    const hip = V(0, 0, 0);
+    const knee = V(0, 0.9 * len, -1.7 * len);
+    const foot = V(0, -2.6, -3.1 * len);
+    mk(lift, sph(0.7, 12), bark, 0, 0, 0);
+    strut(lift, hip, knee, 0.58, 0.42, bark);
+    mk(lift, sph(0.56, 12), moss, knee.x, knee.y, knee.z);
+    strut(lift, knee, foot, 0.42, 0.16, bark, 8);
+    // moss mantle + thorn on the shin
+    spike(lift, V(0, knee.y - 0.1, knee.z - 0.1), foot.clone().lerp(knee, 0.2), 0.42, moss, 5);
+    for (let i = 0; i < 3; i++) spike(lift, foot.clone().add(V((i - 1) * 0.25, 0.25, 0.1)), foot.clone().add(V((i - 1) * 0.55, -0.1, -0.55)), 0.09, cream, 4);
+    mk(lift, new THREE.TorusGeometry(0.46, 0.06, 8, 18), lime, knee.x, knee.y, knee.z, 0, Math.PI / 2, 0);
+    sway(root, 'y', 0.03, 0.9, ph);
+  };
+  const D = Math.PI / 180;
+  leg(-40 * D, 1.7, 0.85, 0.0); leg(40 * D, 1.7, 0.85, 1.6);
+  leg(-92 * D, 1.9, 1.0, 3.1); leg(92 * D, 1.9, 1.0, 4.7);
+  leg(-142 * D, 1.7, 0.9, 0.8); leg(142 * D, 1.7, 0.9, 2.4);
+
+  // ── stem torso: lathe-turned trunk with steel bands ──
+  const stemGeo = new THREE.LatheGeometry([V(0, 0, 0), V(2.6, 0, 0), V(2.4, 0.5, 0), V(1.9, 1.4, 0), V(1.85, 2.0, 0), V(2.1, 2.9, 0), V(2.4, 3.2, 0), V(0, 3.3, 0)].map((v) => new THREE.Vector2(v.x, v.y)), 28);
+  mk(rig, stemGeo, stemM, 0, 2.4, 0);
+  mk(rig, rbox(4.4, 0.7, 4.4, 0.2), steel, 0, 2.5, 0);
+  mk(rig, cyl(2.0, 2.5, 0.9, 26), stemM, 0, 6.0, 0);
+  mk(rig, torus(2.2, 0.12, 36, 8), lime, 0, 5.75, 0, Math.PI / 2, 0, 0);
+  for (const [y, r] of [[3.4, 2.15], [4.5, 2.0], [5.3, 2.4]] as const) {
+    mk(rig, torus(r, 0.11, 36, 8), steel, 0, y, 0, Math.PI / 2, 0, 0);
+    mk(rig, torus(r + 0.02, 0.04, 36, 8), lime, 0, y + 0.1, 0, Math.PI / 2, 0, 0);
+  }
+  // steel face plate on the front with a visor of slit eyes and a vent mouth
+  mk(rig, rbox(2.7, 2.0, 0.6, 0.2), steel, 0, 4.0, -2.0, -0.04, 0, 0);
+  mk(rig, rbox(2.2, 0.5, 0.2, 0.08), black, 0, 4.35, -2.33);
+  for (const s of [-1, 1]) mk(rig, new THREE.BoxGeometry(0.7, 0.14, 0.12), lime, s * 0.52, 4.38, -2.44, 0, 0, s * -0.22);
+  for (let i = 0; i < 5; i++) mk(rig, new THREE.BoxGeometry(1.2 - Math.abs(i - 2) * 0.12, 0.06, 0.1), spore, 0, 3.7 + i * 0.1 - 0.15, -2.35);
+  // brood-core in the chest (glows brighter as it births)
+  const core = grp(rig, 0, 2.95, -2.0);
+  mk(core, rbox(1.2, 1.0, 0.4, 0.14), black, 0, 0, 0.1);
+  const coreOrb = mk(core, sph(0.4, 16), spore, 0, 0, -0.1);
+  const coreHalo = mk(core, sph(0.75, 16), halo(0xfde047, 0.22, true), 0, 0, -0.1);
+  pulse(coreOrb, 0.14); pulse(coreHalo, 0.1);
+  // back: exhaust spores and a tangle of vines
+  mk(rig, rbox(1.6, 1.2, 0.5, 0.14), black, 0, 4.0, 1.6);
+  for (let i = -2; i <= 2; i++) mk(rig, new THREE.BoxGeometry(0.1, 0.9, 0.05), limeSoft, i * 0.26, 4.0, 1.88);
+
+  // ── great cap ──
+  const crown = grp(rig, 0, 6.45, 0);
+  const dome = mk(crown, new THREE.SphereGeometry(4.6, 36, 14, 0, Math.PI * 2, 0, Math.PI / 2), capM, 0, 0, 0);
+  dome.scale.set(1, 0.68, 1);
+  mk(crown, torus(4.55, 0.34, 48, 10), bark, 0, 0.02, 0, Math.PI / 2, 0, 0);
+  mk(crown, torus(4.6, 0.07, 56, 8), lime, 0, 0.16, 0, Math.PI / 2, 0, 0);
+  mk(crown, new THREE.CircleGeometry(4.5, 44), halo(0xa3e635, 0.2, true), 0, -0.06, 0, Math.PI / 2, 0, 0);
+  const gills = grp(crown, 0, -0.12, 0);
+  for (let i = 0; i < 30; i++) {
+    const a = (i / 30) * Math.PI * 2;
+    mk(gills, new THREE.BoxGeometry(4.2, 0.12, 0.05), i % 3 ? limeSoft : lime, Math.cos(a) * 2.15, 0, Math.sin(a) * 2.15, 0, -a, 0);
+  }
+  spin(gills, 'y', 0.12);
+  for (let i = 0; i < 16; i++) { // pale spots
+    const th = i * 2.399, ph = 0.2 + (i % 4) * 0.28;
+    const sp = mk(crown, sph(0.34 + (i % 3) * 0.12, 10), cream, Math.sin(ph) * Math.cos(th) * 4.6, Math.cos(ph) * 4.6 * 0.68 - 0.05, Math.sin(ph) * Math.sin(th) * 4.6);
+    sp.scale.y = 0.5;
+  }
+  for (let i = 0; i < 6; i++) { // riveted steel plates along the front rim
+    const a = (-0.9 + i * 0.36) - Math.PI / 2;
+    mk(crown, rbox(1.3, 0.28, 0.9, 0.1), steel, Math.cos(a) * 4.05, 0.4, Math.sin(a) * 4.05, 0, -a + Math.PI / 2, 0);
+    mk(crown, new THREE.BoxGeometry(0.9, 0.05, 0.06), lime, Math.cos(a) * 4.25, 0.58, Math.sin(a) * 4.25, 0, -a + Math.PI / 2, 0);
+  }
+  // spore vent on the crown
+  mk(crown, cyl(0.7, 1.0, 0.9, 16), steel, 0, 3.0, 0);
+  const vent = mk(crown, cyl(0.5, 0.5, 0.1, 16), lime, 0, 3.49, 0);
+  const ventHalo = mk(crown, sph(1.1, 14), halo(0xbef264, 0.22, true), 0, 3.7, 0);
+  pulse(vent, 0.12); pulse(ventHalo, 0.14);
+  for (let i = 0; i < 4; i++) {
+    const m = mk(crown, new THREE.OctahedronGeometry(0.2, 0), spore, 0, 4.1 + i * 0.5, 0);
+    orbit(m, 0.4 + i * 0.12, 6.45 + 4.1 + i * 0.5, i * 1.6, 1.4 + i * 0.2, 0.12);
+    crown.remove(m); rig.add(m);
+  }
+
+  // ── brood sacs hanging under the gills (little mushrooms ripening inside) ──
+  for (let i = 0; i < 12; i++) {
+    const a = (i / 12) * Math.PI * 2 + 0.2;
+    const r = 2.9 + (i % 2) * 0.8;
+    if (Math.sin(a) * r < -1.0) continue; // keep the face plate clear
+    const hang = grp(rig, Math.cos(a) * r, 6.3, Math.sin(a) * r);
+    const len = 1.1 + (i % 3) * 0.35;
+    strut(hang, V(0, 0, 0), V(0, -len, 0), 0.07, 0.05, leaf);
+    const sac = mk(hang, sph(0.5, 12), halo(0xbef264, 0.4, true), 0, -len - 0.35, 0);
+    sac.scale.set(1, 1.25, 1);
+    mk(hang, sph(0.22, 8), spore, 0, -len - 0.4, 0);
+    const mcap = mk(hang, new THREE.SphereGeometry(0.2, 8, 5, 0, Math.PI * 2, 0, Math.PI / 2), capM, 0, -len - 0.28, 0);
+    mcap.scale.y = 0.7;
+    pulse(sac, 0.1);
+    sway(hang, 'x', 0.1, 1.1, i * 0.7);
+    sway(hang, 'z', 0.08, 0.9, i * 1.1);
+  }
+  // ivy hanging from the cap rim
+  for (let i = 0; i < 12; i++) {
+    const a = (i / 12) * Math.PI * 2;
+    if (Math.sin(a) < -0.55) continue;
+    const base = V(Math.cos(a) * 4.5, 6.45, Math.sin(a) * 4.5);
+    const g = grp(rig, base.x, base.y, base.z);
+    cable(g, [V(0, 0, 0), V(Math.cos(a) * 0.2, -0.9, Math.sin(a) * 0.2), V(Math.cos(a) * 0.1, -1.9 - (i % 3) * 0.5, Math.sin(a) * 0.1)], 0.05, leaf);
+    mk(g, cone(0.18, 0.5, 4), leaf, 0, -2.0 - (i % 3) * 0.5, 0, Math.PI, 0, 0);
+    sway(g, 'z', 0.12, 1.0, i);
+  }
+
+  // ── spore-cannon arms ──
+  [-1, 1].forEach((s) => {
+    const base = V(s * 2.9, 5.0, 0);
+    const arm = k.armPivot(s, base.x, base.y, base.z);
+    mk(arm, sph(0.7, 14), steel, base.x, base.y, base.z);
+    const pa = mk(arm, new THREE.SphereGeometry(0.85, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2), capM, base.x, base.y + 0.2, base.z); // little cap pauldron
+    pa.scale.y = 0.6;
+    mk(arm, torus(0.82, 0.05, 20, 8), lime, base.x, base.y + 0.2, base.z, Math.PI / 2, 0, 0);
+    const elbow = V(s * 3.7, 3.6, -0.6), hand = V(s * 3.5, 2.6, -2.8);
+    strut(arm, base, elbow, 0.5, 0.42, bark);
+    mk(arm, sph(0.5, 12), moss, elbow.x, elbow.y, elbow.z);
+    strut(arm, elbow, hand, 0.5, 0.65, steel);
+    // cannon muzzle (a hollow bell flower)
+    const mz = mk(arm, cyl(0.62, 0.95, 0.9, 14), black, hand.x, hand.y - 0.15, hand.z - 0.35, -0.5, 0, 0);
+    mk(arm, torus(0.95, 0.07, 20, 8), lime, hand.x, hand.y - 0.5, hand.z - 0.7, -0.5 + Math.PI / 2, 0, 0);
+    const m1 = mk(arm, sph(0.42, 12), spore, hand.x, hand.y - 0.35, hand.z - 0.55);
+    const m2 = mk(arm, sph(0.8, 12), halo(0xfde047, 0.22, true), hand.x, hand.y - 0.35, hand.z - 0.55);
+    pulse(m1, 0.16); pulse(m2, 0.12);
+    void mz;
+    for (let i = 0; i < 4; i++) { // thorn knuckles
+      const a = (i / 4) * Math.PI * 2;
+      spike(arm, V(hand.x + Math.cos(a) * 0.5, hand.y + Math.sin(a) * 0.5 + 0.1, hand.z + 0.2), V(hand.x + Math.cos(a) * 0.75, hand.y + Math.sin(a) * 0.75 + 0.1, hand.z - 0.35), 0.1, cream, 4);
+    }
+  });
+
+  // ── small mushrooms growing out of the shoulders and back ──
+  for (let i = 0; i < 7; i++) {
+    const a = 0.6 + i * 0.75;
+    const x = Math.cos(a) * 1.7, z = Math.sin(a) * 1.7 + 0.6, y = 4.6 + (i % 3) * 0.35;
+    const mg = grp(rig, x, y, z, (i % 2 ? 0.4 : -0.4), 0, (i % 3 - 1) * 0.5);
+    mk(mg, cyl(0.07, 0.11, 0.55, 6), stemM, 0, 0.27, 0);
+    const c = mk(mg, new THREE.SphereGeometry(0.3, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2), i % 2 ? capM : steel, 0, 0.5, 0);
+    c.scale.y = 0.65;
+    mk(mg, sph(0.07, 6), i % 2 ? spore : lime, 0, 0.58, 0.18);
+  }
+
+  // ── orbiting spores + mycelium rings on the floor ──
+  for (let i = 0; i < 12; i++) {
+    const o = mk(rig, sph(0.18 + (i % 3) * 0.06, 8), i % 2 ? spore : limeSoft);
+    orbit(o, 4.6 + (i % 3) * 0.8, 1.6 + (i % 5) * 1.5, i * 0.52, 0.5 + i * 0.03, 0.3);
+  }
+  spin(mk(rig, torus(5.8, 0.06, 64, 6), lime, 0, 0.12, 0, Math.PI / 2, 0, 0), 'z', 0.2);
+  spin(mk(rig, torus(4.3, 0.04, 56, 6), limeSoft, 0, 0.12, 0, Math.PI / 2, 0, 0), 'z', -0.35);
+  return k.refs;
+}
+
 export function buildBossModel(kind: BossKind, group: THREE.Group): BossStats {
   const rig = new THREE.Group();
   rig.scale.setScalar(BOSS_SCALE);
@@ -1009,6 +1198,7 @@ export function buildBossModel(kind: BossKind, group: THREE.Group): BossStats {
     : kind === 'kraken' ? buildKraken(rig)
     : kind === 'warden' ? buildWarden(rig)
     : kind === 'frost' ? buildFrost(rig)
+    : kind === 'myco' ? buildMyco(rig)
     : buildTitan(rig);
   group.userData.bossRefs = refs;
   return BOSS_STATS[kind];

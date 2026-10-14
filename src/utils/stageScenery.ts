@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { ABYSS_CONFIG, ABYSS_BUILDERS } from './stageSceneryAbyss';
 import { RELIC_CONFIG, RELIC_BUILDERS } from './stageSceneryRelic';
 import { CRYO_CONFIG, CRYO_BUILDERS } from './stageSceneryCryo';
+import { OVERGROW_CONFIG, OVERGROW_BUILDERS } from './stageSceneryOvergrow';
 
 /**
  * Stage scenery: per-mission sky, atmosphere, lighting and set dressing.
@@ -17,7 +18,8 @@ export type SceneryId =
   | 'biolab' | 'archive' | 'reactor'
   | 'harbor' | 'reef' | 'whalefall' | 'vents' | 'aquarium' | 'trench' | 'sanctum'
   | 'dunes' | 'graveyard' | 'clockwork' | 'crater' | 'chapel' | 'gate' | 'citadel'
-  | 'outskirts' | 'cryobay' | 'stacks' | 'servers' | 'echohall' | 'conduit' | 'frostvault';
+  | 'outskirts' | 'cryobay' | 'stacks' | 'servers' | 'echohall' | 'conduit' | 'frostvault'
+  | 'canopy' | 'greenhouse' | 'mycelium' | 'swamp' | 'rootworks' | 'bloomhill' | 'mycothrone';
 
 interface SkyOptions {
   top: number; horizon: number; bottom: number;
@@ -54,6 +56,7 @@ export const SCENERY_CONFIG: Record<SceneryId, SceneryConfig> = {
   ...ABYSS_CONFIG,
   ...RELIC_CONFIG,
   ...CRYO_CONFIG,
+  ...OVERGROW_CONFIG,
   apartments: {
     sky: { top: 0x04070f, horizon: 0x26364c, bottom: 0x0a0f18, exponent: 0.55, clouds: { color: 0x2a3446, coverage: 0.62, speed: 0.012, opacity: 0.9 }, horizonGlow: { color: 0xf59e0b, strength: 0.22 } },
     fogColor: 0x182231, fogDensity: 0.0125,
@@ -2497,6 +2500,7 @@ const BUILDERS: Record<SceneryId, (ctx: Ctx) => void> = {
   ...ABYSS_BUILDERS,
   ...RELIC_BUILDERS,
   ...CRYO_BUILDERS,
+  ...OVERGROW_BUILDERS,
 };
 
 export interface StageScenery {

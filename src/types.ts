@@ -83,7 +83,7 @@ export interface EnemyType {
   size: number;
 }
 
-export type MapId = 1 | 2 | 3 | 4 | 5 | 6;
+export type MapId = 1 | 2 | 3 | 4 | 5 | 6 | 7;
 
 export interface WorldMapDef {
   id: MapId;
@@ -100,7 +100,7 @@ export interface WorldMapDef {
 
 export interface Mission {
   id: string;
-  mapId: MapId; // 1: Gothic Metropolis, 2: Orbital Citadel, 3: Deep Research, 4: Tidal Ruins, 5: Silent Wastes, 6: Frozen Archive
+  mapId: MapId; // 1: Gothic Metropolis, 2: Orbital Citadel, 3: Deep Research, 4: Tidal Ruins, 5: Silent Wastes, 6: Frozen Archive, 7: Overgrown Sector
   code: string;
   name: string;
   areaName: string;

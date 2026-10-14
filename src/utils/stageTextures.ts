@@ -20,7 +20,7 @@ export interface StageTextureSet {
   panel: StageMaps;
 }
 
-type Style = 'apartments' | 'sanctuary' | 'foundry' | 'cathedral' | 'spire' | 'dock' | 'monolith' | 'omega' | 'abyss' | 'relic' | 'cryo';
+type Style = 'apartments' | 'sanctuary' | 'foundry' | 'cathedral' | 'spire' | 'dock' | 'monolith' | 'omega' | 'abyss' | 'relic' | 'cryo' | 'overgrow';
 
 interface Theme {
   style: Style;
@@ -292,6 +292,7 @@ const PALETTE: Record<Style, { floor: string; wall: string }> = {
   abyss: { floor: '#5f7c82', wall: '#6d8c92' },
   relic: { floor: '#8a7a9a', wall: '#9a8aae' },
   cryo: { floor: '#9db8cc', wall: '#aac4d8' },
+  overgrow: { floor: '#7d9468', wall: '#8aa075' },
 };
 
 const S = 1024;
@@ -429,6 +430,40 @@ function paintFloor(theme: Theme): StageMaps {
       s.glow((c) => { for (let k = 0; k < 6; k++) { const a = k * Math.PI / 3; c.moveTo(cx + Math.cos(a) * 170, cy + Math.sin(a) * 170); c.lineTo(cx + Math.cos(a) * 300, cy + Math.sin(a) * 300); } }, '#a5f3fc', 3);
       s.glow((c) => { for (let k = 0; k < 4; k++) { c.moveTo(0, 110 + k * 270); c.lineTo(160, 110 + k * 270); c.lineTo(200, 150 + k * 270); c.lineTo(S, 150 + k * 270); } }, accent, 2.5);
       for (let k = 0; k < 8; k++) s.rivet(60 + (k % 4) * 30, 60 + Math.floor(k / 4) * 30, 5);
+      break;
+    }
+    case 'overgrow': { // moss-split flagstones: root veins, clover patches, glowing lime spore trails
+      grid(4, (x, y, w) => s.panel(x, y, w, w, base, { gap: 6, bevel: 4, vary: 0.1, rough: 0.8 }));
+      s.mottle(90, 170, 0.1, '30,60,10'); s.grime(14);
+      for (let i = 0; i < 7; i++) s.crack(s.rnd() * S, s.rnd() * S, 100 + s.rnd() * 200, s.rnd() * 6.28);
+      // roots creeping along the joints
+      for (let i = 0; i < 14; i++) {
+        const x = s.rnd() * S, y = s.rnd() * S, a = s.rnd() * 6.28, len = 120 + s.rnd() * 220;
+        s.wrap(() => {
+          s.a.strokeStyle = 'rgba(56,36,18,0.85)'; s.a.lineWidth = 5 + s.rnd() * 5; s.a.lineCap = 'round';
+          s.h.strokeStyle = 'rgba(230,230,230,0.9)'; s.h.lineWidth = 6;
+          for (const c of [s.a, s.h]) {
+            c.beginPath(); c.moveTo(x, y);
+            c.bezierCurveTo(x + Math.cos(a) * len * 0.3, y + Math.sin(a + 0.7) * len * 0.3, x + Math.cos(a + 0.6) * len * 0.7, y + Math.sin(a) * len * 0.7, x + Math.cos(a) * len, y + Math.sin(a) * len);
+            c.stroke();
+          }
+        });
+      }
+      // moss + clover patches
+      for (let i = 0; i < 70; i++) {
+        const x = s.rnd() * S, y = s.rnd() * S, r = 10 + s.rnd() * 38;
+        s.wrap(() => {
+          const g = s.a.createRadialGradient(x, y, 0, x, y, r);
+          g.addColorStop(0, `rgba(${60 + s.rnd() * 30},${120 + s.rnd() * 50},30,0.55)`); g.addColorStop(1, 'rgba(60,120,30,0)');
+          s.a.fillStyle = g; s.a.fillRect(x - r, y - r, r * 2, r * 2);
+        });
+      }
+      // luminous spore trails
+      const cx = S / 2, cy = S / 2;
+      s.glow((c) => { c.moveTo(0, 190); c.bezierCurveTo(260, 90, 420, 300, S, 170); }, accent, 4);
+      s.glow((c) => { c.moveTo(120, S); c.bezierCurveTo(300, 700, 600, 880, 900, 600); }, '#d9f99d', 3);
+      s.glow((c) => c.arc(cx, cy, 230, 0, Math.PI * 2), accent, 3);
+      for (let k = 0; k < 18; k++) s.glowRect(s.rnd() * S, s.rnd() * S, 6, 6, k % 3 ? '#d9f99d' : '#fde68a');
       break;
     }
     case 'relic': { // fused glass-sand slabs with golden sun inlay and violet fractures
@@ -573,6 +608,37 @@ function paintWall(theme: Theme): StageMaps {
       }
       for (let i = 0; i < 6; i++) s.crack(s.rnd() * S, s.rnd() * S, 120 + s.rnd() * 200, s.rnd() * 6.28);
       s.mottle(60, 160, 0.08, '20,60,90'); s.vertGrime(14);
+      break;
+    }
+    case 'overgrow': { // vine-wrapped ruin walls: ivy curtains, moss, glowing blossoms
+      for (let i = 0; i < 4; i++) s.panel(i * 256, 0, 256, S, base, { gap: 6, bevel: 5, vary: 0.08, rough: 0.8 });
+      s.mottle(70, 150, 0.1, '30,60,10');
+      // ivy curtains hanging from the top edge
+      for (let i = 0; i < 16; i++) {
+        const x = s.rnd() * S, len = 260 + s.rnd() * 560;
+        s.wrap(() => {
+          s.a.strokeStyle = 'rgba(40,86,22,0.9)'; s.a.lineWidth = 4;
+          s.h.strokeStyle = 'rgba(220,220,220,0.8)'; s.h.lineWidth = 4;
+          for (const c of [s.a, s.h]) { c.beginPath(); c.moveTo(x, 0); for (let y = 0; y <= len; y += 24) c.lineTo(x + Math.sin(y * 0.03 + i) * 12, y); c.stroke(); }
+          for (let y = 30; y < len; y += 26) {
+            const lx = x + Math.sin(y * 0.03 + i) * 12 + (y % 52 ? 9 : -9);
+            s.a.fillStyle = y % 3 ? 'rgba(86,140,38,0.95)' : 'rgba(58,104,28,0.95)';
+            s.a.beginPath(); s.a.ellipse(lx, y, 9, 5, y % 52 ? 0.6 : -0.6, 0, Math.PI * 2); s.a.fill();
+            s.h.fillStyle = 'rgba(210,210,210,0.8)'; s.h.beginPath(); s.h.ellipse(lx, y, 9, 5, y % 52 ? 0.6 : -0.6, 0, Math.PI * 2); s.h.fill();
+          }
+        });
+      }
+      // glowing blossoms on the vines
+      for (let i = 0; i < 26; i++) {
+        const x = s.rnd() * S, y = 80 + s.rnd() * 700;
+        s.glowRect(x, y, 8, 8, i % 3 ? accent : '#fbcfe8');
+      }
+      for (let i = 0; i < 4; i++) {
+        const ox = i * 256;
+        s.glow((c) => { c.moveTo(ox + 50, 960); c.lineTo(ox + 50, 300); c.quadraticCurveTo(ox + 128, 150, ox + 206, 300); c.lineTo(ox + 206, 960); }, accent, 3);
+      }
+      for (let i = 0; i < 6; i++) s.crack(s.rnd() * S, s.rnd() * S, 120 + s.rnd() * 200, s.rnd() * 6.28);
+      s.vertGrime(20);
       break;
     }
     case 'relic': { // sun-glyph plates of fused glass with gold trim

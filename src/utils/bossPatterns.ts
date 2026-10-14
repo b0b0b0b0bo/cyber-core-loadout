@@ -23,6 +23,7 @@ export const BOSS_FX: Record<BossKind, { a: number; b: number; slam: number; rad
   kraken: { a: 0x2dd4bf, b: 0x67e8f9, slam: 0x14b8a6, radius: 10 },
   warden: { a: 0xa78bfa, b: 0xfde68a, slam: 0x8b5cf6, radius: 9.5 },
   frost: { a: 0x67e8f9, b: 0xe0f7ff, slam: 0x38bdf8, radius: 10 },
+  myco: { a: 0xa3e635, b: 0xfde047, slam: 0x65a30d, radius: 10.5 },
 };
 
 /** Which elite guards each boss calls in (summon_guard). */
@@ -33,6 +34,7 @@ const SUMMONS: Record<BossKind, string[]> = {
   kraken: ['wyrm', 'splitter'],
   warden: ['mender', 'lancer', 'berserker'],
   frost: ['weaver', 'chrono', 'lancer'],
+  myco: ['wyrm', 'carrier', 'jester'],
 };
 
 /** First move after an enrage roar. */
@@ -43,16 +45,25 @@ const SIGNATURE: Record<BossKind, string> = {
   kraken: 'tentacle_sweep',
   warden: 'prism_beam',
   frost: 'rock_wave',
+  myco: 'spore_brood',
 };
 
 const LABELS: Record<string, Partial<Record<BossKind, string>> & { def: string }> = {
-  seraph_charge: { def: 'CHARGE', golgotha: 'SERAPH CHARGE', golem: 'COLOSSUS RAM', titan: 'DREADNOUGHT RAM', kraken: 'TIDAL RUSH', warden: 'LANCE CHARGE', frost: 'GLACIAL RUSH' },
-  artillery_rain: { def: 'BARRAGE', golgotha: 'HEAVEN PILLAR', golem: 'BOULDER RAIN', titan: 'ARTILLERY RAIN', kraken: 'WATER BOMB', warden: 'SWORD RAIN', frost: 'ICICLE RAIN' },
-  rock_wave: { def: 'ROCK WAVE', golem: 'ROCK WAVE', kraken: 'GEYSER LINE', frost: 'GLACIER LINE' },
-  tentacle_sweep: { def: 'SWEEP', kraken: 'TENTACLE SWEEP', golem: 'TITAN SWEEP', golgotha: 'WING SCYTHE', frost: 'BLADE SWEEP' },
-  rail_cannon: { def: 'RAIL CANNON', titan: 'RAIL CANNON', warden: 'PRISM LANCE', frost: 'CRYO LANCE' },
+  seraph_charge: { def: 'CHARGE', myco: 'CAP STAMPEDE', golgotha: 'SERAPH CHARGE', golem: 'COLOSSUS RAM', titan: 'DREADNOUGHT RAM', kraken: 'TIDAL RUSH', warden: 'LANCE CHARGE', frost: 'GLACIAL RUSH' },
+  artillery_rain: { def: 'BARRAGE', myco: 'SPORE BOMBARD', golgotha: 'HEAVEN PILLAR', golem: 'BOULDER RAIN', titan: 'ARTILLERY RAIN', kraken: 'WATER BOMB', warden: 'SWORD RAIN', frost: 'ICICLE RAIN' },
+  rock_wave: { def: 'ROCK WAVE', myco: 'MYCELIUM RUN', golem: 'ROCK WAVE', kraken: 'GEYSER LINE', frost: 'GLACIER LINE' },
+  tentacle_sweep: { def: 'SWEEP', myco: 'HYPHAE SWEEP', kraken: 'TENTACLE SWEEP', golem: 'TITAN SWEEP', golgotha: 'WING SCYTHE', frost: 'BLADE SWEEP' },
+  rail_cannon: { def: 'RAIL CANNON', myco: 'SPORE LANCE', titan: 'RAIL CANNON', warden: 'PRISM LANCE', frost: 'CRYO LANCE' },
 };
-const labelOf = (p: string, k: BossKind) => LABELS[p]?.[k] ?? LABELS[p]?.def ?? p.toUpperCase();
+const EXTRA_LABELS: Record<string, Partial<Record<BossKind, string>>> = {
+  holy_laser_fan: { myco: 'SPORE FAN' },
+  meteor_bomb: { myco: 'PUFFBALL' },
+  nova_ring: { myco: 'SPORE RING' },
+  spiral_barrage: { myco: 'SPORE SPIRAL' },
+  judgement_slam: { myco: 'CAP SLAM' },
+  spore_brood: { myco: 'SPORE BROOD' },
+};
+const labelOf = (p: string, k: BossKind) => EXTRA_LABELS[p]?.[k] ?? LABELS[p]?.[k] ?? LABELS[p]?.def ?? p.toUpperCase();
 
 const phaseWind = (ph: number) => (ph >= 3 ? 0.78 : ph === 2 ? 0.9 : 1);
 
@@ -73,6 +84,7 @@ function durationOf(p: string, ph: number): number {
     case 'tentacle_sweep': return ph >= 2 ? 0.1 + 1.1 * f + 0.55 + 0.75 * f + 0.7 : 0.1 + 1.1 * f + 0.8;
     case 'whirlpool': return 3.8;
     case 'prism_beam': return 1.0 * f + 4.2 + 0.5;
+    case 'spore_brood': return 1.1 * f + 0.25 + 1.6 + 0.8;
     case 'summon_guard': return 2.2;
     case 'phase_shift': return 2.4;
   }
@@ -110,6 +122,11 @@ function pool(kind: BossKind, ph: number, dist: number, e: CombatEnemy, c: Comba
       p.push(['rail_cannon', 3], ['artillery_rain', 3], ['tentacle_sweep', near ? 3 : 1.4], ['rock_wave', 2.5], ['holy_laser_fan', 2.2], ['seraph_charge', 1.6], ['nova_ring', 1.5]);
       if (ph >= 2) p.push(['prism_beam', 2], ['sky_dive', 1.8], ['spiral_barrage', 2]);
       if (ph >= 3) p.push(['prism_beam', 2], ['rock_wave', 1.5], ['tentacle_sweep', 1.5], ['judgement_slam', near ? 2 : 0.6]);
+      break;
+    case 'myco':
+      p.push(['spore_brood', 3.2], ['artillery_rain', 2.6], ['rock_wave', 2.4], ['tentacle_sweep', near ? 3 : 1.2], ['holy_laser_fan', 2], ['judgement_slam', near ? 2.4 : 0.6], ['nova_ring', 1.4]);
+      if (ph >= 2) p.push(['spore_brood', 2.4], ['spiral_barrage', 2.2], ['meteor_bomb', 1.8], ['seraph_charge', 1.6]);
+      if (ph >= 3) p.push(['spore_brood', 2.4], ['nova_ring', 1.6], ['rock_wave', 1.6], ['artillery_rain', 1.6]);
       break;
     case 'warden':
       p.push(['prism_beam', 3], ['holy_laser_fan', 3], ['artillery_rain', 2.5], ['meteor_bomb', 2], ['rail_cannon', 1.5], ['nova_ring', 1.5]);
@@ -541,6 +558,15 @@ export function runBossPattern(e: CombatEnemy, c: CombatCtx, dist: number): void
               glowS.rotation.x = Math.PI;
               mesh.add(lance, shaft, glowS);
               fxKind = 'spikes';
+            } else if (kind === 'myco') {
+              mesh = new THREE.Group();
+              const pod = new THREE.Mesh(new THREE.SphereGeometry(0.75, 12, 10), new THREE.MeshBasicMaterial({ color: 0xbef264 }));
+              const podCap = new THREE.Mesh(new THREE.SphereGeometry(0.85, 12, 6, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xea580c }));
+              podCap.position.y = 0.2;
+              podCap.scale.y = 0.7;
+              const glowS = new THREE.Mesh(new THREE.SphereGeometry(1.3, 12, 10), new THREE.MeshBasicMaterial({ color: fx.a, transparent: true, opacity: 0.3, blending: THREE.AdditiveBlending, depthWrite: false }));
+              mesh.add(pod, podCap, glowS);
+              fxKind = 'geyser';
             } else if (kind === 'golem') {
               mesh = new THREE.Mesh(new THREE.DodecahedronGeometry(0.9, 0), new THREE.MeshStandardMaterial({ color: 0x5b5148, roughness: 0.9, emissive: 0xff5a1a, emissiveIntensity: 0.25 }));
               fxKind = 'spikes';
@@ -630,7 +656,7 @@ export function runBossPattern(e: CombatEnemy, c: CombatCtx, dist: number): void
               c.hazards.add({
                 shape: 'circle', x, z, radius: 1.95, delay: 0.3 + j * 0.11,
                 damage: Math.round(e.damage * 1.1), knockUp: 8,
-                label: labelOf(p, kind), color: fx.slam, fx: kind === 'kraken' ? 'geyser' : kind === 'golem' || kind === 'frost' ? 'spikes' : 'pillar',
+                label: labelOf(p, kind), color: fx.slam, fx: kind === 'kraken' ? 'geyser' : kind === 'golem' || kind === 'frost' || kind === 'myco' ? 'spikes' : 'pillar',
                 shake: j % 3 === 0 ? 0.15 : 0,
               });
             }
@@ -819,6 +845,41 @@ export function runBossPattern(e: CombatEnemy, c: CombatCtx, dist: number): void
           c.sfx.heavy();
         }
       }
+      break;
+    }
+
+    // ───────────── 胞子産み: the cap opens, pods are spat out and burst into Mushlings ─────────────
+    case 'spore_brood': {
+      e.velocity.multiplyScalar(0.3);
+      const wind = 1.1 * f;
+      cue(t < wind ? 'roar' : 'recover', t < wind ? t / wind : Math.max(0, 1 - (t - wind) * 1.2));
+      if (once(0)) {
+        c.announce('SPORE BROOD // 菌王機が小型茸機を産み落とした');
+        c.sfx.scan();
+        const alive = c.enemies.filter((o) => !o.isDead && o.typeId === 'mushling').length;
+        const n = Math.max(0, Math.min(6 + ph * 2, 22 - alive));
+        for (let i = 0; i < n; i++) {
+          // half the pods rain around the player (forcing movement), the rest ring the boss
+          const nearPlayer = i % 2 === 0;
+          const a = Math.random() * Math.PI * 2;
+          const r = nearPlayer ? 4 + Math.random() * 7 : 8 + Math.random() * 10;
+          const cx = nearPlayer ? c.player.x : pos.x;
+          const cz = nearPlayer ? c.player.z : pos.z;
+          const x = THREE.MathUtils.clamp(cx + Math.cos(a) * r, -36, 36);
+          const z = THREE.MathUtils.clamp(cz + Math.sin(a) * r, -36, 36);
+          c.hazards.add({
+            shape: 'circle', x, z, radius: 1.7, delay: wind + 0.25 + i * 0.09,
+            damage: Math.round(e.damage * 0.45), knockUp: 3,
+            label: labelOf(p, kind), color: fx.a, fx: 'pillar', owner: e,
+            drop: { from: new THREE.Vector3(pos.x, pos.y + 10, pos.z), color: 0xbef264, size: 0.5, arc: 10 },
+            onBurst: () => {
+              if (e.isDead) return;
+              c.spawnMinion('mushling', new THREE.Vector3(x, 0, z));
+            },
+          });
+        }
+      }
+      if (t >= wind && once(1)) impact(0.9);
       break;
     }
 
