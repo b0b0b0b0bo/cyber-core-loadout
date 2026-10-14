@@ -1923,7 +1923,7 @@ export const INITIAL_SKILL_NODES: SkillNode[] = [
     name: 'SYNAPSE RUSH // シナプス格闘加速',
     branch: 'INFIGHT',
     nodeType: 'PASSIVE_STAT',
-    description: '【INFIGHT】全近接武器の攻撃速度 +15%、攻撃力 +15%、移動速度 +8%。',
+    description: '【INFIGHT】全近接武器の攻撃範囲 +15%、攻撃力 +15%、クリティカル率 +8%。',
     cost: 150,
     unlocked: false,
     tier: 1,
@@ -1932,8 +1932,8 @@ export const INITIAL_SKILL_NODES: SkillNode[] = [
     prerequisites: ['core_root'],
     effects: [
       { stat: 'meleeDamage', value: 0.15, label: '近接威力 +15%' },
-      { stat: 'meleeSpeed', value: 0.15, label: '近接攻撃速度 +15%' },
-      { stat: 'moveSpeed', value: 0.08, label: '移動速度 +8%' },
+      { stat: 'sweepRange', value: 0.15, label: '近接攻撃範囲 +15%' },
+      { stat: 'critRate', value: 0.08, label: 'クリティカル率 +8%' },
     ],
     isWeaponSpecific: false,
     iconType: 'speed',
@@ -1943,7 +1943,7 @@ export const INITIAL_SKILL_NODES: SkillNode[] = [
     name: 'SHIELD RECTIFIER // シールド整流・堅牢',
     branch: 'INFIGHT',
     nodeType: 'PASSIVE_STAT',
-    description: '【INFIGHT】最大シールド +30、ガード耐久値UP（ガード時被ダメージ -30%、スタミナ消費 -25%）。',
+    description: '【INFIGHT】近接威力 +10%、ガード耐久値UP（ガード時被ダメージ -30%、スタミナ消費 -25%）。',
     cost: 260,
     unlocked: false,
     tier: 2,
@@ -1951,7 +1951,7 @@ export const INITIAL_SKILL_NODES: SkillNode[] = [
     y: 400,
     prerequisites: ['infight_unlock_gauntlets'],
     effects: [
-      { stat: 'maxShield', value: 30, label: 'シールド上限 +30' },
+      { stat: 'meleeDamage', value: 0.1, label: '近接威力 +10%' },
       { stat: 'guardStaminaCost', value: -0.25, label: 'ガードスタミナ消費 -25%' },
     ],
     isWeaponSpecific: false,
@@ -3151,7 +3151,7 @@ export const INITIAL_SKILL_NODES: SkillNode[] = [
     name: 'TACHYON FANG // 位相加速',
     branch: 'INFIGHT',
     nodeType: 'WEAPON_SPECIFIC',
-    description: '【TACHYON FANG専用】連撃攻撃速度 +25%、プレイヤー移動速度 +10%。',
+    description: '【TACHYON FANG専用】連撃攻撃速度 +25%、クリティカル率 +6%。',
     cost: 260,
     unlocked: false,
     tier: 2,
@@ -3160,7 +3160,7 @@ export const INITIAL_SKILL_NODES: SkillNode[] = [
     prerequisites: ['infight_unlock_tachyon'],
     effects: [
       { stat: 'fireRate', value: 0.25, label: '連撃速度 +25%' },
-      { stat: 'moveSpeed', value: 0.1, label: '移動速度 +10%' },
+      { stat: 'critRate', value: 0.06, label: 'クリティカル率 +6%' },
     ],
     isWeaponSpecific: true,
     targetWeaponId: 'blade_tachyon',
@@ -3375,7 +3375,7 @@ export const INITIAL_SKILL_NODES: SkillNode[] = [
     name: 'BLADE FLOW // 連撃マスタリー',
     branch: 'INFIGHT',
     nodeType: 'PASSIVE_STAT',
-    description: '【INFIGHT】全近接武器の威力 +30%、攻撃速度 +25%、攻撃時シールド吸収 +10%。',
+    description: '【INFIGHT】全近接武器の威力 +30%、攻撃範囲 +20%、攻撃時シールド吸収 +10%。',
     cost: 680,
     unlocked: false,
     tier: 4,
@@ -3384,7 +3384,7 @@ export const INITIAL_SKILL_NODES: SkillNode[] = [
     prerequisites: ['infight_sweep_mastery'],
     effects: [
       { stat: 'meleeDamage', value: 0.3, label: '近接威力 +30%' },
-      { stat: 'meleeSpeed', value: 0.25, label: '近接攻撃速度 +25%' },
+      { stat: 'sweepRange', value: 0.2, label: '近接攻撃範囲 +20%' },
       { stat: 'lifeStealShield', value: 0.1, label: 'シールド吸収 +10%' },
     ],
     isWeaponSpecific: false,
@@ -3972,7 +3972,7 @@ INITIAL_SKILL_NODES.push(
     name: 'DRIVE GEAR I // 旋回駆動ギア',
     branch: 'INFIGHT',
     nodeType: 'PASSIVE_STAT',
-    description: '【INFIGHT】近接攻撃速度 +12%、移動速度 +6%。',
+    description: '【INFIGHT】近接攻撃範囲 +12%、クリティカル率 +6%。',
     cost: 220,
     unlocked: false,
     tier: 2,
@@ -3980,8 +3980,8 @@ INITIAL_SKILL_NODES.push(
     y: 460,
     prerequisites: ['infight_passive_piston'],
     effects: [
-      { stat: 'meleeSpeed', value: 0.12, label: '近接速度 +12%' },
-      { stat: 'moveSpeed', value: 0.06, label: '移動速度 +6%' },
+      { stat: 'sweepRange', value: 0.12, label: '近接攻撃範囲 +12%' },
+      { stat: 'critRate', value: 0.06, label: 'クリティカル率 +6%' },
     ],
     isWeaponSpecific: false,
     iconType: 'speed',
@@ -4107,7 +4107,7 @@ INITIAL_SKILL_NODES.push(
     name: 'SHOCK DIFFUSER I // 重火器スタビライザー',
     branch: 'GRENADE',
     nodeType: 'PASSIVE_STAT',
-    description: '【GRENADE】重火器携行時の反動ダンパー。移動速度 +6%、射撃精度 +8。',
+    description: '【GRENADE】重火器携行時の反動ダンパー。爆風半径 +6%、射撃精度 +8。',
     cost: 270,
     unlocked: false,
     tier: 3,
@@ -4115,7 +4115,7 @@ INITIAL_SKILL_NODES.push(
     y: 670,
     prerequisites: ['grenade_unlock_frost_cannon'],
     effects: [
-      { stat: 'moveSpeed', value: 0.06, label: '移動速度 +6%' },
+      { stat: 'blastRadius', value: 0.06, label: '爆風半径 +6%' },
       { stat: 'accuracy', value: 8, label: '精度 +8' },
     ],
     isWeaponSpecific: false,
@@ -4369,14 +4369,14 @@ INITIAL_SKILL_NODES.push(
     name: 'STORMBREAKER // 油圧高速打撃サイクル',
     branch: 'INFIGHT',
     nodeType: 'WEAPON_SPECIFIC',
-    description: '【STORMBREAKER専用】拳の連打速度を上昇させ、近距離の敵に隙を与えずラッシュを叩き込む。',
+    description: '【STORMBREAKER専用】拳の打撃力を高め、近距離の敵へ重いラッシュを叩き込む。',
     cost: 230,
     unlocked: false,
     tier: 2,
     x: 290,
     y: 490,
     prerequisites: ['infight_unlock_gauntlets'],
-    effects: [{ stat: 'meleeSpeed', value: 0.25, label: '攻撃速度 +25%' }],
+    effects: [{ stat: 'meleeDamage', value: 0.25, label: '近接威力 +25%' }],
     isWeaponSpecific: true,
     targetWeaponId: 'blade_gauntlets',
     requiresWeaponUnlocked: 'blade_gauntlets',
@@ -5320,18 +5320,18 @@ const WEAPON_COMPLEXITY_ORDER: Record<string, string[]> = {
 const BRIDGE_VARIANTS: Record<string, Array<{ name: string; description: string; stat: string; value: number; label: string; iconType: SkillNode['iconType'] }>> = {
   INFIGHT: [
     { name: 'RELAY FRAME // 近接中継フレーム', description: '近接兵装の中継回路。近接威力 +8%。', stat: 'meleeDamage', value: 0.08, label: '近接威力 +8%', iconType: 'sword' },
-    { name: 'RELAY SERVO // 近接中継サーボ', description: '近接兵装の中継回路。近接攻撃速度 +8%。', stat: 'meleeSpeed', value: 0.08, label: '近接攻撃速度 +8%', iconType: 'speed' },
-    { name: 'RELAY PLATE // 近接中継装甲', description: '近接兵装の中継回路。最大HP +20。', stat: 'maxHp', value: 20, label: '最大HP +20', iconType: 'shield' },
+    { name: 'RELAY REACH // 近接中継リーチ', description: '近接兵装の中継回路。近接攻撃範囲 +8%。', stat: 'sweepRange', value: 0.08, label: '近接攻撃範囲 +8%', iconType: 'speed' },
+    { name: 'RELAY EDGE // 近接中継刃先', description: '近接兵装の中継回路。クリティカル率 +4%。', stat: 'critRate', value: 0.04, label: 'クリティカル率 +4%', iconType: 'crosshair' },
   ],
   ASSAULT: [
     { name: 'RELAY LINK // 射撃中継リンク', description: '射撃兵装の中継回路。射撃威力 +8%。', stat: 'rangedDamage', value: 0.08, label: '射撃威力 +8%', iconType: 'zap' },
-    { name: 'RELAY CELL // 射撃中継セル', description: '射撃兵装の中継回路。最大シールド +20。', stat: 'maxShield', value: 20, label: '最大シールド +20', iconType: 'shield' },
-    { name: 'RELAY STRIDE // 射撃中継脚部', description: '射撃兵装の中継回路。移動速度 +5%。', stat: 'moveSpeed', value: 0.05, label: '移動速度 +5%', iconType: 'speed' },
+    { name: 'RELAY SIGHT // 射撃中継照準', description: '射撃兵装の中継回路。精度 +4。', stat: 'accuracy', value: 4, label: '精度 +4', iconType: 'crosshair' },
+    { name: 'RELAY WEAKPOINT // 射撃中継弱点解析', description: '射撃兵装の中継回路。クリティカル率 +4%。', stat: 'critRate', value: 0.04, label: 'クリティカル率 +4%', iconType: 'crosshair' },
   ],
   GRENADE: [
     { name: 'RELAY CHARGE // 重火器中継チャージ', description: '重火器の中継回路。重火器威力 +8%。', stat: 'heavyDamage', value: 0.08, label: '重火器威力 +8%', iconType: 'heavy' },
     { name: 'RELAY CYCLE // 重火器中継サイクル', description: '重火器の中継回路。リチャージ速度 +10%。', stat: 'rechargeSpeed', value: 0.1, label: 'リチャージ速度 +10%', iconType: 'speed' },
-    { name: 'RELAY HULL // 重火器中継外殻', description: '重火器の中継回路。最大HP +20。', stat: 'maxHp', value: 20, label: '最大HP +20', iconType: 'shield' },
+    { name: 'RELAY BURST // 重火器中継爆風', description: '重火器の中継回路。爆風半径 +8%。', stat: 'blastRadius', value: 0.08, label: '爆風半径 +8%', iconType: 'heavy' },
   ],
 };
 {
@@ -5383,10 +5383,10 @@ const BRIDGE_VARIANTS: Record<string, Array<{ name: string; description: string;
 INITIAL_SKILL_NODES.push(
   {
     id: 'infight_passive_frontier', name: 'FRONTIER EDGE // 新式格闘フレーム', branch: 'INFIGHT', nodeType: 'PASSIVE_STAT',
-    description: '【INFIGHT】次世代の近接兵装に対応した骨格。近接威力 +6%、近接攻撃速度 +5%。新型INFIGHT兵装の解放ノードが連なる。',
+    description: '【INFIGHT】次世代の近接兵装に対応した骨格。近接威力 +6%、近接攻撃範囲 +5%。新型INFIGHT兵装の解放ノードが連なる。',
     cost: 420, unlocked: false, tier: 4, x: 120, y: 470,
     prerequisites: ['infight_passive_absorb'],
-    effects: [{ stat: 'meleeDamage', value: 0.06, label: '近接威力 +6%' }, { stat: 'meleeSpeed', value: 0.05, label: '近接攻撃速度 +5%' }],
+    effects: [{ stat: 'meleeDamage', value: 0.06, label: '近接威力 +6%' }, { stat: 'sweepRange', value: 0.05, label: '近接攻撃範囲 +5%' }],
     isWeaponSpecific: false, iconType: 'sword',
   },
   {
@@ -5709,18 +5709,18 @@ INITIAL_SKILL_NODES.push(
 const FILLER_VARIANTS: Record<string, Array<{ name: string; label: string; stat: string; value: number; iconType: SkillNode['iconType'] }>> = {
   INFIGHT: [
     { name: 'MELEE TUNER // 近接調律ユニット', label: '近接威力 +6%', stat: 'meleeDamage', value: 0.06, iconType: 'sword' },
-    { name: 'MELEE SERVO // 近接加速サーボ', label: '近接攻撃速度 +6%', stat: 'meleeSpeed', value: 0.06, iconType: 'speed' },
-    { name: 'MELEE PLATING // 近接補強装甲', label: '最大HP +15', stat: 'maxHp', value: 15, iconType: 'shield' },
+    { name: 'MELEE REACH // 近接リーチ補正', label: '近接攻撃範囲 +6%', stat: 'sweepRange', value: 0.06, iconType: 'sword' },
+    { name: 'MELEE EDGE // 近接刃先研磨', label: 'クリティカル率 +4%', stat: 'critRate', value: 0.04, iconType: 'crosshair' },
   ],
   ASSAULT: [
     { name: 'RANGED TUNER // 射撃調律ユニット', label: '射撃威力 +6%', stat: 'rangedDamage', value: 0.06, iconType: 'zap' },
-    { name: 'RANGED CELL // 射撃補助セル', label: '最大シールド +15', stat: 'maxShield', value: 15, iconType: 'shield' },
-    { name: 'RANGED STRIDE // 射撃補助脚部', label: '移動速度 +4%', stat: 'moveSpeed', value: 0.04, iconType: 'speed' },
+    { name: 'RANGED SIGHT // 射撃照準補正', label: '精度 +4', stat: 'accuracy', value: 4, iconType: 'crosshair' },
+    { name: 'RANGED EDGE // 射撃弱点解析', label: 'クリティカル率 +4%', stat: 'critRate', value: 0.04, iconType: 'crosshair' },
   ],
   GRENADE: [
     { name: 'HEAVY TUNER // 重火器調律ユニット', label: '重火器威力 +6%', stat: 'heavyDamage', value: 0.06, iconType: 'heavy' },
     { name: 'HEAVY CYCLER // 重火器循環器', label: 'リチャージ速度 +8%', stat: 'rechargeSpeed', value: 0.08, iconType: 'speed' },
-    { name: 'HEAVY HULL // 重火器補強外殻', label: '最大HP +15', stat: 'maxHp', value: 15, iconType: 'shield' },
+    { name: 'HEAVY BURST // 重火器爆風拡張', label: '爆風半径 +6%', stat: 'blastRadius', value: 0.06, iconType: 'heavy' },
   ],
 };
 {
@@ -5765,6 +5765,75 @@ const FILLER_VARIANTS: Record<string, Array<{ name: string; label: string; stat:
     child.prerequisites = [`fill_${child.id}`, ...child.prerequisites.slice(1)];
   }
   INITIAL_SKILL_NODES.push(...fillers);
+}
+
+// 枝分かれの整理:
+//  - 1つのノードから伸びる子ノードは最大2つ (起点 core_root は3系統の入口なので対象外)
+//  - 1つのノードから武器解放ノードが複数伸びないよう、間にカテゴリ別の強化ノードを挟む
+//  ○ (武器特有強化) は解放ノードに付く飾りなので数えない。挟んだノードの ID は `fill_` で始まる
+{
+  const isSpecificNode = (n: SkillNode) => n.isWeaponSpecific || n.nodeType === 'WEAPON_SPECIFIC';
+  const nodes = INITIAL_SKILL_NODES.filter((n) => !isSpecificNode(n));
+  const counters: Record<string, number> = {};
+  const created: SkillNode[] = [];
+  const makeRelay = (parent: SkillNode): SkillNode => {
+    const variants = FILLER_VARIANTS[parent.branch];
+    const k = (counters[parent.branch] = (counters[parent.branch] ?? -1) + 1);
+    const v = variants[k % variants.length];
+    const relay: SkillNode = {
+      id: `fill_split_${parent.id}_${k}`,
+      name: v.name,
+      branch: parent.branch,
+      nodeType: 'PASSIVE_STAT',
+      description: `【${parent.branch}】補助ステータス強化。${v.label}。`,
+      cost: 120 + parent.tier * 50,
+      unlocked: false,
+      tier: parent.tier + 1,
+      x: parent.x,
+      y: parent.y,
+      prerequisites: [parent.id],
+      effects: [{ stat: v.stat, value: v.value, label: v.label }],
+      isWeaponSpecific: false,
+      iconType: v.iconType,
+    };
+    created.push(relay);
+    return relay;
+  };
+  const isUnlock = (n: SkillNode) => n.nodeType === 'WEAPON_UNLOCK';
+  const attach = (parent: SkillNode, child: SkillNode, oldParentId: string) => {
+    child.prerequisites = child.prerequisites.map((p) => (p === oldParentId ? parent.id : p));
+  };
+  // parent の子として items (元は origId の子) を、最大2本・解放ノード最大1本で配置する
+  const build = (parent: SkillNode, items: SkillNode[], origId: string) => {
+    if (items.length <= 2 && items.filter(isUnlock).length <= 1) {
+      items.forEach((c) => attach(parent, c, origId));
+      return;
+    }
+    if (items.length === 2) {
+      attach(parent, items[0], origId);
+      const relay = makeRelay(parent);
+      attach(relay, items[1], origId);
+      return;
+    }
+    const half = Math.ceil(items.length / 2);
+    const groups = [items.slice(0, half), items.slice(half)];
+    // 大きい方の組を挟みノード経由にし、1つだけの組は直接つなぐ
+    groups.forEach((g) => {
+      if (g.length === 1) {
+        attach(parent, g[0], origId);
+      } else {
+        const relay = makeRelay(parent);
+        build(relay, g, origId);
+      }
+    });
+  };
+  for (const parent of nodes) {
+    if (parent.id === 'core_root') continue;
+    const kids = nodes.filter((c) => c.prerequisites.includes(parent.id));
+    if (kids.length <= 2 && kids.filter(isUnlock).length <= 1) continue;
+    build(parent, kids, parent.id);
+  }
+  INITIAL_SKILL_NODES.push(...created);
 }
 
 export const INITIAL_PLAYER_STATS: PlayerStats = {
