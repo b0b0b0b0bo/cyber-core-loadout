@@ -111,9 +111,17 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({ result, onRetry, onG
       color: 'var(--hud-accent)',
     });
   }
-  if (isVictory) {
+  if (isVictory && result.hard) {
+    // ハードMAPのクリアでは、次MAP解放などの通常側の通知は出さない
+  } else if (isVictory) {
     const clearedIdx = WORLD_MAPS.findIndex((wm) => wm.bossMissionId === result.missionId);
     if (clearedIdx >= 0) {
+      unlocks.push({
+        icon: <Unlock className="w-3.5 h-3.5" />,
+        title: 'HARD MAP // ハードMAP解放',
+        body: `${WORLD_MAPS[clearedIdx].badge} のハード版が出撃可能になりました`,
+        color: '#facc15',
+      });
       const next = WORLD_MAPS[clearedIdx + 1];
       const cur = WORLD_MAPS[clearedIdx];
       if (next) {

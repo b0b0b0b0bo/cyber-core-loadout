@@ -8,6 +8,7 @@ import {
   PlayerStats,
   BattleResult,
 } from './types';
+import { WORLD_MAPS } from './data/initialData';
 import { loadGameState, saveGameState, clearGameSave } from './utils/save';
 import { sound } from './utils/sound';
 import { MissionMap3D } from './components/MissionMap3D';
@@ -56,12 +57,37 @@ export default function App() {
   const [selectedMission, setSelectedMission] = useState<Mission | null>(initialGame.selectedMission);
 
   // 武器編成画面から「強化する」で飛ぶ先のガジェットノード
+  // ハードモード (MAPのボスを倒したMAPで選択可能。3MAP先の難易度になる)
+  const [hardMode, setHardMode] = useState(false);
+  // ハードMAPでクリア済みのミッションID
+  const [hardCleared, setHardCleared] = useState<string[]>(initialGame.hardCleared);
+
+  // 選択中ミッションのMAPのボスが撃破済みのときだけハードが有効
+  const effectiveHard = (m: Mission | null) =>
+    hardMode && !!m && missions.some((x) => x.id === WORLD_MAPS.find((w) => w.id === m.mapId)?.bossMissionId && x.cleared);
+
+  // ハードMAP表示用: ボス撃破済みのMAPはハード側の進行 (各MAP最初のステージ + 直前のハードステージをクリア済み) に差し替える。
+  // 他MAPのハードクリアは不要 (MAP2ハードはMAP1ハード未クリアでも可)。
+  const viewMissions = React.useMemo(() => {
+    if (!hardMode) return missions;
+    const bossCleared = new Set(
+      WORLD_MAPS.filter((w) => missions.some((x) => x.id === w.bossMissionId && x.cleared)).map((w) => w.id)
+    );
+    return missions.map((m, i) => {
+      if (!bossCleared.has(m.mapId)) return m;
+      const prev = missions[i - 1];
+      const first = !prev || prev.mapId !== m.mapId;
+      return { ...m, cleared: hardCleared.includes(m.id), unlocked: first || hardCleared.includes(prev.id) };
+    });
+  }, [hardMode, missions, hardCleared]);
+  const viewSelectedMission = selectedMission ? viewMissions.find((m) => m.id === selectedMission.id) ?? selectedMission : null;
+
   const [focusNodeId, setFocusNodeId] = useState<string | null>(null);
 
   // 進行状況が変わるたびに自動保存
   useEffect(() => {
-    saveGameState({ weapons, missions, skillNodes, playerStats, selectedMission });
-  }, [weapons, missions, skillNodes, playerStats, selectedMission]);
+    saveGameState({ weapons, missions, skillNodes, playerStats, selectedMission, hardCleared });
+  }, [weapons, missions, skillNodes, playerStats, selectedMission, hardCleared]);
 
   // Last Battle Result
   const [lastBattleResult, setLastBattleResult] = useState<BattleResult | null>(null);
@@ -92,6 +118,7 @@ export default function App() {
         const m = missionsRef.current.find((x) => x.id === msg.missionId);
         if (m) {
           setSelectedMission(m);
+          setHardMode(!!msg.hard);
           setIsCoopOpen(false);
           setCurrentScreen('BATTLE');
         }
@@ -221,7 +248,7 @@ export default function App() {
       return;
     }
     setSelectedMission(mission);
-    if (net?.isHost && net.peerCount > 0) net.send({ t: 'start', missionId: mission.id });
+    if (net?.isHost && net.peerCount > 0) net.send({ t: 'start', missionId: mission.id, hard: effectiveHard(mission) });
     setCurrentScreen('BATTLE');
   };
 
@@ -234,7 +261,18 @@ export default function App() {
       beacons: prev.beacons + result.rewards.cores,
     }));
 
-    if (result.isVictory) {
+    const wasHard = effectiveHard(selectedMission) || (!!net && !net.isHost && hardMode);
+    if (result.isVictory && wasHard) {
+      // ハードMAPのクリア: ハード側の進行だけを進める (通常側の進行・次MAP解放は変えない)
+      const idx = missions.findIndex((m) => m.id === result.missionId);
+      setHardCleared((prev) => (prev.includes(result.missionId) ? prev : [...prev, result.missionId]));
+      const next = missions[idx + 1];
+      if (idx >= 0) setSelectedMission(next && next.mapId === missions[idx].mapId ? next : missions[idx]);
+      if (result.rewards.weaponUnlocked) {
+        setWeapons((prev) => prev.map((w) => (w.id === result.rewards.weaponUnlocked?.id ? { ...w, unlocked: true } : w)));
+      }
+      result = { ...result, hard: true };
+    } else if (result.isVictory) {
       const clearedIdx = missions.findIndex((m) => m.id === result.missionId);
       let newlyUnlockedNext: Mission | undefined;
       if (clearedIdx >= 0 && clearedIdx + 1 < missions.length) {
@@ -413,8 +451,11 @@ export default function App() {
               className="w-full h-full"
             >
               <MissionMap3D
-                missions={missions}
-                selectedMission={selectedMission}
+                missions={viewMissions}
+                baseMissions={missions}
+                selectedMission={viewSelectedMission}
+                hardMode={hardMode}
+                onToggleHard={setHardMode}
                 onSelectMission={(m) => setSelectedMission(m)}
                 onStartMission={handleStartMission}
                 onUnlockAll={
@@ -494,6 +535,7 @@ export default function App() {
                 weaponDamageLevels={playerStats.weaponDamageLevels}
                 nodeLevels={playerStats.nodeLevels}
                 net={net}
+                hard={effectiveHard(selectedMission) || (!!net && !net.isHost && hardMode)}
                 onFinishBattle={handleFinishBattle}
                 onExitToMenu={() => setCurrentScreen('MISSION_SELECT')}
               />
@@ -518,7 +560,7 @@ export default function App() {
                     setCurrentScreen('MISSION_SELECT');
                     return;
                   }
-                  if (net?.isHost && net.peerCount > 0 && selectedMission) net.send({ t: 'start', missionId: selectedMission.id });
+                  if (net?.isHost && net.peerCount > 0 && selectedMission) net.send({ t: 'start', missionId: selectedMission.id, hard: effectiveHard(selectedMission) });
                   setCurrentScreen('BATTLE');
                 }}
                 onGoToUpgrade={() => {

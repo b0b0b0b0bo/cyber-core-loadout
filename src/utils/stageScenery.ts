@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { ABYSS_CONFIG, ABYSS_BUILDERS } from './stageSceneryAbyss';
 import { RELIC_CONFIG, RELIC_BUILDERS } from './stageSceneryRelic';
+import { CRYO_CONFIG, CRYO_BUILDERS } from './stageSceneryCryo';
 
 /**
  * Stage scenery: per-mission sky, atmosphere, lighting and set dressing.
@@ -15,7 +16,8 @@ export type SceneryId =
   | 'market' | 'aqueduct' | 'belfry' | 'skybridge' | 'relay' | 'arsenal'
   | 'biolab' | 'archive' | 'reactor'
   | 'harbor' | 'reef' | 'whalefall' | 'vents' | 'aquarium' | 'trench' | 'sanctum'
-  | 'dunes' | 'graveyard' | 'clockwork' | 'crater' | 'chapel' | 'gate' | 'citadel';
+  | 'dunes' | 'graveyard' | 'clockwork' | 'crater' | 'chapel' | 'gate' | 'citadel'
+  | 'outskirts' | 'cryobay' | 'stacks' | 'servers' | 'echohall' | 'conduit' | 'frostvault';
 
 interface SkyOptions {
   top: number; horizon: number; bottom: number;
@@ -51,6 +53,7 @@ export interface SceneryConfig {
 export const SCENERY_CONFIG: Record<SceneryId, SceneryConfig> = {
   ...ABYSS_CONFIG,
   ...RELIC_CONFIG,
+  ...CRYO_CONFIG,
   apartments: {
     sky: { top: 0x04070f, horizon: 0x26364c, bottom: 0x0a0f18, exponent: 0.55, clouds: { color: 0x2a3446, coverage: 0.62, speed: 0.012, opacity: 0.9 }, horizonGlow: { color: 0xf59e0b, strength: 0.22 } },
     fogColor: 0x182231, fogDensity: 0.0125,
@@ -2493,6 +2496,7 @@ const BUILDERS: Record<SceneryId, (ctx: Ctx) => void> = {
   arsenal: buildArsenal, biolab: buildBiolab, archive: buildArchive, reactor: buildReactor,
   ...ABYSS_BUILDERS,
   ...RELIC_BUILDERS,
+  ...CRYO_BUILDERS,
 };
 
 export interface StageScenery {

@@ -12,7 +12,7 @@ import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeom
  * enrage colour shift per phase.
  */
 
-export type BossKind = 'golgotha' | 'golem' | 'titan' | 'kraken' | 'warden';
+export type BossKind = 'golgotha' | 'golem' | 'titan' | 'kraken' | 'warden' | 'frost';
 export const BOSS_SCALE = 1.8;
 
 export const bossKindOf = (typeId: string): BossKind | null =>
@@ -21,6 +21,7 @@ export const bossKindOf = (typeId: string): BossKind | null =>
     : typeId === 'boss_titan' ? 'titan'
     : typeId === 'boss_kraken' ? 'kraken'
     : typeId === 'boss_warden' ? 'warden'
+    : typeId === 'boss_frost' ? 'frost'
     : null;
 
 export interface BossStats {
@@ -35,6 +36,7 @@ export const BOSS_STATS: Record<BossKind, BossStats> = {
   titan: { hp: 4900, speed: 3.0, damage: 64 },
   kraken: { hp: 6200, speed: 3.3, damage: 66 },
   warden: { hp: 7000, speed: 3.9, damage: 70 },
+  frost: { hp: 7600, speed: 4.2, damage: 72 },
 };
 
 interface BossRefs {
@@ -855,6 +857,148 @@ function buildWarden(rig: THREE.Group): BossRefs {
   return k.refs;
 }
 
+// ───────────────────────── FROST CORE (frozen archive vault) ─────────────────────────
+// Eight-legged cryo walker: navy chassis, white armour, ice-blade legs, a crystal core and a floating halo.
+function buildFrost(rig: THREE.Group): BossRefs {
+  const k = createKit('frost', rig, 0xff5577);
+  const { armor, solid, glow, halo, rbox, cyl, sph, cone, torus, mk, grp, V, strut, blade, spin, orbit, pulse, sway } = k;
+  const texW = panelTexture('#c6d8e8', '#ffffff', 4);
+  const texD = panelTexture('#0f1b2e', '#4f7ba6', 5);
+  const white = armor(0xe6f1fa, texW, 0.4, 0.4);
+  const navy = armor(0x16263d, texD, 0.6, 0.38);
+  const steel = solid(0x9fb6cc, 0.85, 0.25);
+  const black = solid(0x040810, 0.4, 0.6);
+  const cyan = glow(0x38bdf8, true);
+  const aqua = glow(0x67e8f9, true);
+  const snow = glow(0xf0fbff);
+  const ice = new THREE.MeshPhysicalMaterial({ color: 0x7fd4ff, transparent: true, opacity: 0.72, metalness: 0.1, roughness: 0.05, clearcoat: 1, emissive: 0x1a90e0, emissiveIntensity: 0.5, flatShading: true });
+  const iceDeep = new THREE.MeshPhysicalMaterial({ color: 0x5cc8f5, transparent: true, opacity: 0.75, metalness: 0.1, roughness: 0.05, clearcoat: 1, emissive: 0x1a8ad0, emissiveIntensity: 0.7, flatShading: true });
+  const orient = (o: THREE.Object3D, dir: THREE.Vector3) => o.quaternion.setFromUnitVectors(V(0, 1, 0), dir.clone().normalize());
+  /** Cone with its base at a and its tip at b. */
+  const spike = (parent: THREE.Object3D, a: THREE.Vector3, b: THREE.Vector3, r: number, mat: THREE.Material, seg = 5) => {
+    const dir = new THREE.Vector3().subVectors(b, a);
+    const m = mk(parent, cone(r, dir.length(), seg), mat);
+    m.position.copy(a).addScaledVector(dir, 0.5);
+    orient(m, dir);
+    return m;
+  };
+
+  // ── eight legs: each pivots at the hip and extends along local -Z (angle a = from forward toward +X) ──
+  const leg = (a: number, hipR: number, len: number, ph: number) => {
+    const root = grp(rig, Math.sin(a) * hipR, 3.3, -Math.cos(a) * hipR, 0, -a, 0);
+    const lift = grp(root);
+    k.refs.lifts.push({ obj: lift, idx: k.refs.lifts.length, front: Math.abs(a) < Math.PI / 2, side: Math.sign(a) || 1 });
+    const hip = V(0, 0, 0);
+    const knee = V(0, 1.0 * len, -1.9 * len);
+    const foot = V(0, -3.15, -3.5 * len);
+    // hip joint disc with a cyan ring on both faces
+    mk(lift, cyl(0.62, 0.62, 0.55, 18), navy, 0, 0, 0, 0, 0, Math.PI / 2);
+    for (const sx of [-1, 1]) mk(lift, torus(0.44, 0.05, 24, 8), cyan, sx * 0.29, 0, 0, 0, Math.PI / 2, 0);
+    // upper segment: navy strut plus a white armour spike lying on top
+    strut(lift, hip, knee, 0.34, 0.27, navy);
+    spike(lift, V(0, 0.38, 0.1), V(knee.x, knee.y + 0.5, knee.z - 0.1), 0.34, white, 4);
+    // knee joint
+    mk(lift, sph(0.46, 14), navy, knee.x, knee.y, knee.z);
+    for (const sx of [-1, 1]) mk(lift, torus(0.36, 0.045, 20, 8), aqua, knee.x + sx * 0.4, knee.y, knee.z, 0, Math.PI / 2, 0);
+    // lower segment: armoured core wrapped in a long ice blade that stabs the floor
+    strut(lift, knee, foot, 0.3, 0.12, navy, 8);
+    spike(lift, V(0, knee.y + 0.05, knee.z + 0.05), foot.clone().lerp(knee, 0.12), 0.5, white, 4);
+    // flat ice blades flank the white armour core on both sides and reach past the tip
+    const ld = foot.clone().sub(knee).normalize();
+    const tipEnd = foot.clone().addScaledVector(ld, 0.5);
+    for (const sx of [-1, 1]) {
+      const b = mk(lift, blade(knee.distanceTo(tipEnd) * 0.98, 0.62, 0.14), ice, sx * 0.34, knee.y, knee.z);
+      orient(b, ld);
+      b.quaternion.multiply(new THREE.Quaternion().setFromAxisAngle(V(0, 1, 0), Math.PI / 2)); // stand the fin on edge
+    }
+    mk(lift, new THREE.BoxGeometry(0.05, 0.05, 2.6 * len), aqua, 0, knee.y - 1.05, knee.z - 1.25 * len, 0.62, 0, 0);
+    sway(root, 'y', 0.035, 0.9, ph);
+  };
+  const D = Math.PI / 180;
+  leg(-38 * D, 1.5, 0.78, 0.0); leg(38 * D, 1.5, 0.78, 1.6);
+  leg(-78 * D, 1.7, 1.0, 3.1); leg(78 * D, 1.7, 1.0, 4.7);
+  leg(-112 * D, 1.7, 1.0, 0.8); leg(112 * D, 1.7, 1.0, 2.4);
+  leg(-152 * D, 1.5, 0.85, 3.9); leg(152 * D, 1.5, 0.85, 5.5);
+
+  // ── chassis ──
+  mk(rig, rbox(3.2, 1.2, 3.6, 0.3), navy, 0, 3.5, 0.1);
+  mk(rig, rbox(2.3, 0.6, 2.9, 0.2), black, 0, 2.85, 0.1);
+  mk(rig, rbox(2.7, 0.5, 3.2, 0.18), white, 0, 4.25, 0.15, -0.04, 0, 0);       // upper shell
+  mk(rig, rbox(1.6, 0.45, 2.0, 0.15), white, 0, 4.05, -2.0, -0.28, 0, 0);       // prow plate
+  for (const s of [-1, 1]) {
+    mk(rig, rbox(0.5, 1.05, 3.0, 0.14), white, s * 1.65, 3.9, 0.1, 0, 0, s * -0.28);   // flank armour
+    mk(rig, new THREE.BoxGeometry(0.05, 0.9, 0.05), cyan, s * 1.92, 3.9, -0.9, 0, 0, s * -0.28);
+    mk(rig, new THREE.BoxGeometry(0.05, 0.9, 0.05), cyan, s * 1.92, 3.9, 0.9, 0, 0, s * -0.28);
+    for (let i = 0; i < 3; i++) spike(rig, V(s * (0.9 + i * 0.5), 4.4, 1.2 + i * 0.4), V(s * (1.1 + i * 0.6), 4.8, 3.1 + i * 0.5), 0.22, white, 4);  // rear fins
+  }
+  // rear reactor vent
+  mk(rig, rbox(1.4, 0.9, 0.3, 0.08), black, 0, 3.6, 1.95);
+  for (let i = -2; i <= 2; i++) mk(rig, new THREE.BoxGeometry(0.1, 0.7, 0.04), aqua, i * 0.24, 3.6, 2.13);
+
+  // ── ice crystal core on the chest ──
+  const coreRig = grp(rig, 0, 3.95, -1.95);
+  mk(coreRig, rbox(1.5, 1.7, 0.5, 0.12), black, 0, 0, 0.35);
+  const crystal = mk(coreRig, new THREE.OctahedronGeometry(1, 0), iceDeep, 0, 0, 0);
+  crystal.scale.set(0.78, 1.25, 0.8);
+  const inner = mk(coreRig, new THREE.OctahedronGeometry(1, 0), snow, 0, 0, 0);
+  inner.scale.set(0.3, 0.6, 0.3);
+  const coreHalo = mk(coreRig, sph(1.25), halo(0x67e8f9, 0.22, true), 0, 0, 0);
+  spin(mk(coreRig, torus(1.0, 0.04, 40, 8), aqua, 0, 0, -0.1), 'z', 0.7);
+  pulse(inner, 0.16); pulse(coreHalo, 0.1);
+  for (const s of [-1, 1]) { mk(rig, sph(0.13, 10), cyan, s * 0.9, 4.55, -2.55); mk(rig, sph(0.1, 10), aqua, s * 1.15, 4.2, -2.5); }
+
+  // ── twin ice blades on the shoulders (they swing with the arm cues) ──
+  [-1, 1].forEach((s) => {
+    const base = V(s * 1.5, 4.9, 0.2);
+    const arm = k.armPivot(s, base.x, base.y, base.z);
+    mk(arm, rbox(1.0, 0.75, 1.3, 0.16), white, base.x, base.y, base.z);
+    mk(arm, sph(0.48, 14), navy, base.x, base.y, base.z);
+    mk(arm, torus(0.4, 0.05, 20, 8), cyan, base.x + s * 0.3, base.y, base.z, 0, Math.PI / 2, 0);
+    const dir = V(s * 0.8, 0.3, 0.55).normalize();
+    const bl = mk(arm, blade(8.0, 1.7, 0.32), ice, base.x, base.y, base.z);
+    orient(bl, dir);
+    const sheath = mk(arm, blade(3.6, 1.2, 0.5), white, base.x, base.y, base.z);
+    orient(sheath, dir);
+    const edge = mk(arm, blade(7.2, 0.26, 0.38), aqua, base.x, base.y, base.z);
+    orient(edge, dir);
+    for (let i = 0; i < 3; i++) {
+      const o = base.clone().addScaledVector(dir, 2.4 + i * 1.7).add(V(0, 0.55, 0));
+      spike(arm, o, o.clone().addScaledVector(dir, 1.1).add(V(0, 0.9, 0)), 0.17, ice, 4);
+    }
+  });
+
+  // ── crown: floating halo with a crystal spire and orbiting diamonds ──
+  const crown = grp(rig, 0, 6.5, 0.1);
+  const ringA = mk(crown, torus(1.9, 0.07, 56, 8), cyan, 0, 0, 0, Math.PI / 2, 0, 0);
+  const ringB = mk(crown, torus(1.4, 0.045, 48, 8), aqua, 0, 0.06, 0, Math.PI / 2, 0, 0);
+  mk(crown, torus(1.9, 0.3, 40, 8), halo(0x67e8f9, 0.12, true), 0, 0, 0, Math.PI / 2, 0, 0);
+  spin(ringA, 'z', 0.35); spin(ringB, 'z', -0.7);
+  for (let i = 0; i < 10; i++) {
+    const a = (i / 10) * Math.PI * 2;
+    mk(ringA, cone(0.09, i % 2 ? 0.35 : 0.6, 4), i % 2 ? aqua : snow, Math.cos(a) * 2.05, Math.sin(a) * 2.05, 0, 0, 0, a - Math.PI / 2);
+  }
+  const spire = mk(crown, cone(0.55, 2.8, 6), ice, 0, 1.5, 0);
+  mk(crown, cone(0.26, 2.9, 6), snow, 0, 1.55, 0);
+  mk(crown, cone(0.4, 1.2, 6), ice, 0, -0.65, 0, Math.PI, 0, 0);
+  const spireHalo = mk(crown, sph(1.0), halo(0x67e8f9, 0.2, true), 0, 1.0, 0);
+  pulse(spireHalo, 0.12);
+  void spire;
+  for (let i = 0; i < 5; i++) {
+    const d = mk(rig, new THREE.OctahedronGeometry(0.28, 0), i % 2 ? ice : iceDeep);
+    d.scale.set(0.7, 1.4, 0.7);
+    orbit(d, 2.5 + (i % 2) * 0.4, 6.0 + (i % 3) * 0.55, i * 1.26, 0.7 + i * 0.05, 0.25);
+  }
+  // loose ice shards circling low around the legs
+  for (let i = 0; i < 7; i++) {
+    const s = mk(rig, cone(0.2, 1.3, 4), i % 2 ? ice : white, 0, 0, 0, Math.PI, 0, 0);
+    orbit(s, 5.6 + (i % 3) * 0.6, 1.4 + (i % 4) * 1.1, i * 0.9, 0.4 + i * 0.04, 0.3);
+  }
+  // cooling-field ring on the floor
+  spin(mk(rig, torus(5.6, 0.05, 64, 6), aqua, 0, 0.12, 0, Math.PI / 2, 0, 0), 'z', 0.25);
+  spin(mk(rig, torus(4.2, 0.03, 56, 6), cyan, 0, 0.12, 0, Math.PI / 2, 0, 0), 'z', -0.4);
+  return k.refs;
+}
+
 export function buildBossModel(kind: BossKind, group: THREE.Group): BossStats {
   const rig = new THREE.Group();
   rig.scale.setScalar(BOSS_SCALE);
@@ -864,6 +1008,7 @@ export function buildBossModel(kind: BossKind, group: THREE.Group): BossStats {
     : kind === 'golem' ? buildGolem(rig)
     : kind === 'kraken' ? buildKraken(rig)
     : kind === 'warden' ? buildWarden(rig)
+    : kind === 'frost' ? buildFrost(rig)
     : buildTitan(rig);
   group.userData.bossRefs = refs;
   return BOSS_STATS[kind];

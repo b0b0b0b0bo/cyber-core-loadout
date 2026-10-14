@@ -22,6 +22,7 @@ export const BOSS_FX: Record<BossKind, { a: number; b: number; slam: number; rad
   titan: { a: 0xff3322, b: 0xff8a1f, slam: 0xff3322, radius: 10.5 },
   kraken: { a: 0x2dd4bf, b: 0x67e8f9, slam: 0x14b8a6, radius: 10 },
   warden: { a: 0xa78bfa, b: 0xfde68a, slam: 0x8b5cf6, radius: 9.5 },
+  frost: { a: 0x67e8f9, b: 0xe0f7ff, slam: 0x38bdf8, radius: 10 },
 };
 
 /** Which elite guards each boss calls in (summon_guard). */
@@ -31,6 +32,7 @@ const SUMMONS: Record<BossKind, string[]> = {
   titan: ['carrier', 'aegis'],
   kraken: ['wyrm', 'splitter'],
   warden: ['mender', 'lancer', 'berserker'],
+  frost: ['weaver', 'chrono', 'lancer'],
 };
 
 /** First move after an enrage roar. */
@@ -40,14 +42,15 @@ const SIGNATURE: Record<BossKind, string> = {
   titan: 'rail_cannon',
   kraken: 'tentacle_sweep',
   warden: 'prism_beam',
+  frost: 'rock_wave',
 };
 
 const LABELS: Record<string, Partial<Record<BossKind, string>> & { def: string }> = {
-  seraph_charge: { def: 'CHARGE', golgotha: 'SERAPH CHARGE', golem: 'COLOSSUS RAM', titan: 'DREADNOUGHT RAM', kraken: 'TIDAL RUSH', warden: 'LANCE CHARGE' },
-  artillery_rain: { def: 'BARRAGE', golgotha: 'HEAVEN PILLAR', golem: 'BOULDER RAIN', titan: 'ARTILLERY RAIN', kraken: 'WATER BOMB', warden: 'SWORD RAIN' },
-  rock_wave: { def: 'ROCK WAVE', golem: 'ROCK WAVE', kraken: 'GEYSER LINE' },
-  tentacle_sweep: { def: 'SWEEP', kraken: 'TENTACLE SWEEP', golem: 'TITAN SWEEP', golgotha: 'WING SCYTHE' },
-  rail_cannon: { def: 'RAIL CANNON', titan: 'RAIL CANNON', warden: 'PRISM LANCE' },
+  seraph_charge: { def: 'CHARGE', golgotha: 'SERAPH CHARGE', golem: 'COLOSSUS RAM', titan: 'DREADNOUGHT RAM', kraken: 'TIDAL RUSH', warden: 'LANCE CHARGE', frost: 'GLACIAL RUSH' },
+  artillery_rain: { def: 'BARRAGE', golgotha: 'HEAVEN PILLAR', golem: 'BOULDER RAIN', titan: 'ARTILLERY RAIN', kraken: 'WATER BOMB', warden: 'SWORD RAIN', frost: 'ICICLE RAIN' },
+  rock_wave: { def: 'ROCK WAVE', golem: 'ROCK WAVE', kraken: 'GEYSER LINE', frost: 'GLACIER LINE' },
+  tentacle_sweep: { def: 'SWEEP', kraken: 'TENTACLE SWEEP', golem: 'TITAN SWEEP', golgotha: 'WING SCYTHE', frost: 'BLADE SWEEP' },
+  rail_cannon: { def: 'RAIL CANNON', titan: 'RAIL CANNON', warden: 'PRISM LANCE', frost: 'CRYO LANCE' },
 };
 const labelOf = (p: string, k: BossKind) => LABELS[p]?.[k] ?? LABELS[p]?.def ?? p.toUpperCase();
 
@@ -102,6 +105,11 @@ function pool(kind: BossKind, ph: number, dist: number, e: CombatEnemy, c: Comba
       p.push(['tentacle_sweep', near ? 3.5 : 1.6], ['rock_wave', 2.5], ['judgement_slam', dist < 16 ? 3 : 1], ['spiral_barrage', 2.5], ['whirlpool', 1.8], ['artillery_rain', 1.2]);
       if (ph >= 2) p.push(['nova_ring', 2], ['holy_laser_fan', 1.5]);
       if (ph >= 3) p.push(['whirlpool', 1.5], ['tentacle_sweep', 1.5]);
+      break;
+    case 'frost':
+      p.push(['rail_cannon', 3], ['artillery_rain', 3], ['tentacle_sweep', near ? 3 : 1.4], ['rock_wave', 2.5], ['holy_laser_fan', 2.2], ['seraph_charge', 1.6], ['nova_ring', 1.5]);
+      if (ph >= 2) p.push(['prism_beam', 2], ['sky_dive', 1.8], ['spiral_barrage', 2]);
+      if (ph >= 3) p.push(['prism_beam', 2], ['rock_wave', 1.5], ['tentacle_sweep', 1.5], ['judgement_slam', near ? 2 : 0.6]);
       break;
     case 'warden':
       p.push(['prism_beam', 3], ['holy_laser_fan', 3], ['artillery_rain', 2.5], ['meteor_bomb', 2], ['rail_cannon', 1.5], ['nova_ring', 1.5]);
@@ -505,7 +513,7 @@ export function runBossPattern(e: CombatEnemy, c: CombatCtx, dist: number): void
             }
             x = THREE.MathUtils.clamp(x, -37, 37);
             z = THREE.MathUtils.clamp(z, -37, 37);
-            const fromSky = kind === 'golgotha' || kind === 'warden';
+            const fromSky = kind === 'golgotha' || kind === 'warden' || kind === 'frost';
             const from = fromSky ? new THREE.Vector3(x, 34, z) : new THREE.Vector3(pos.x, pos.y + 9, pos.z);
             let mesh: THREE.Object3D | undefined;
             let fxKind: HazardFx = 'blast';
@@ -521,6 +529,18 @@ export function runBossPattern(e: CombatEnemy, c: CombatCtx, dist: number): void
               glowS.rotation.x = Math.PI;
               mesh.add(bl, guard, glowS);
               fxKind = 'spikes';
+            } else if (kind === 'frost') {
+              mesh = new THREE.Group();
+              const lance = new THREE.Mesh(new THREE.ConeGeometry(0.4, 3.6, 6), new THREE.MeshBasicMaterial({ color: 0xe0f7ff }));
+              lance.position.y = -1.3;
+              lance.rotation.x = Math.PI;
+              const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.38, 1.4, 6), new THREE.MeshBasicMaterial({ color: 0x9fe0ff }));
+              shaft.position.y = 0.9;
+              const glowS = new THREE.Mesh(new THREE.ConeGeometry(0.8, 4.0, 6), new THREE.MeshBasicMaterial({ color: fx.a, transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false }));
+              glowS.position.y = -1.3;
+              glowS.rotation.x = Math.PI;
+              mesh.add(lance, shaft, glowS);
+              fxKind = 'spikes';
             } else if (kind === 'golem') {
               mesh = new THREE.Mesh(new THREE.DodecahedronGeometry(0.9, 0), new THREE.MeshStandardMaterial({ color: 0x5b5148, roughness: 0.9, emissive: 0xff5a1a, emissiveIntensity: 0.25 }));
               fxKind = 'spikes';
@@ -529,8 +549,8 @@ export function runBossPattern(e: CombatEnemy, c: CombatCtx, dist: number): void
             c.hazards.add({
               shape: 'circle', x, z, radius: 3.0, delay: 1.0 + i * 0.14,
               damage: Math.round(e.damage * 1.1), knockUp: 4,
-              label: labelOf(p, kind), color: kind === 'warden' ? fx.a : fx.b, fx: fxKind, shake: 0.25,
-              drop: { from, color: fx.b, size: 0.5, arc: fromSky ? 0 : 12, fall: fromSky, mesh, orient: kind === 'warden' ? 'point' : 'tumble' },
+              label: labelOf(p, kind), color: kind === 'warden' || kind === 'frost' ? fx.a : fx.b, fx: fxKind, shake: 0.25,
+              drop: { from, color: fx.b, size: 0.5, arc: fromSky ? 0 : 12, fall: fromSky, mesh, orient: kind === 'warden' || kind === 'frost' ? 'point' : 'tumble' },
             });
           }
         }
@@ -610,7 +630,7 @@ export function runBossPattern(e: CombatEnemy, c: CombatCtx, dist: number): void
               c.hazards.add({
                 shape: 'circle', x, z, radius: 1.95, delay: 0.3 + j * 0.11,
                 damage: Math.round(e.damage * 1.1), knockUp: 8,
-                label: labelOf(p, kind), color: fx.slam, fx: kind === 'kraken' ? 'geyser' : kind === 'golem' ? 'spikes' : 'pillar',
+                label: labelOf(p, kind), color: fx.slam, fx: kind === 'kraken' ? 'geyser' : kind === 'golem' || kind === 'frost' ? 'spikes' : 'pillar',
                 shake: j % 3 === 0 ? 0.15 : 0,
               });
             }

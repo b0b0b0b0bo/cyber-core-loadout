@@ -61,6 +61,8 @@ interface BattleScene3DProps {
   nodeLevels?: Record<string, number>;
   /** 協力プレイのセッション (ソロなら null) */
   net?: NetSession | null;
+  /** ハードモード (3MAP先の敵の強さ) */
+  hard?: boolean;
   onFinishBattle: (result: BattleResult) => void;
   onExitToMenu: () => void;
 }
@@ -91,6 +93,7 @@ const ENEMY_BASE_CATEGORY: Record<string, EnemyCategory> = {
   boss_titan: 'boss',
   boss_kraken: 'boss',
   boss_warden: 'boss',
+  boss_frost: 'boss',
 };
 const baseCategoryOf = (typeId: string): EnemyCategory =>
   ENEMY_BASE_CATEGORY[typeId] ?? (typeId as EnemyCategory);
@@ -559,7 +562,7 @@ export interface StageEnvironmentTheme {
   nameJa: string;
   subName: string;
   scenery: SceneryId;
-  style: 'apartments' | 'sanctuary' | 'foundry' | 'cathedral' | 'spire' | 'dock' | 'monolith' | 'omega' | 'abyss' | 'relic';
+  style: 'apartments' | 'sanctuary' | 'foundry' | 'cathedral' | 'spire' | 'dock' | 'monolith' | 'omega' | 'abyss' | 'relic' | 'cryo';
 }
 
 export function getStageTheme(missionId: string): StageEnvironmentTheme {
@@ -981,6 +984,92 @@ export function getStageTheme(missionId: string): StageEnvironmentTheme {
         style: 'relic',
       };
 
+    // ================= MAP 6: FROZEN ARCHIVE =================
+    case 'm21_outskirts':
+      return {
+        floorRoughness: 0.2,
+        floorMetalness: 0.4,
+        gridMain: 0x67e8f9,
+        gridSub: 0xe0f2fe,
+        accentColor: 0x67e8f9,
+        nameJa: '凍原外縁の突破',
+        subName: 'FROZEN OUTSKIRTS // SECTOR 36',
+        scenery: 'outskirts',
+        style: 'cryo',
+      };
+    case 'm21b_cryobay':
+      return {
+        floorRoughness: 0.15,
+        floorMetalness: 0.55,
+        gridMain: 0x38bdf8,
+        gridSub: 0xa5f3fc,
+        accentColor: 0x38bdf8,
+        nameJa: '冷却ベイの制圧',
+        subName: 'CRYO BAY // SECTOR 37',
+        scenery: 'cryobay',
+        style: 'cryo',
+      };
+    case 'm22_stacks':
+      return {
+        floorRoughness: 0.18,
+        floorMetalness: 0.5,
+        gridMain: 0x7dd3fc,
+        gridSub: 0xe0f2fe,
+        accentColor: 0x7dd3fc,
+        nameJa: '凍結書庫の探索',
+        subName: 'FROZEN STACKS // SECTOR 38',
+        scenery: 'stacks',
+        style: 'cryo',
+      };
+    case 'm22b_servers':
+      return {
+        floorRoughness: 0.2,
+        floorMetalness: 0.6,
+        gridMain: 0x22d3ee,
+        gridSub: 0x6366f1,
+        accentColor: 0x22d3ee,
+        nameJa: '氷結サーバー群の防衛',
+        subName: 'GLACIAL SERVER HALL // SECTOR 39',
+        scenery: 'servers',
+        style: 'cryo',
+      };
+    case 'm23_echohall':
+      return {
+        floorRoughness: 0.12,
+        floorMetalness: 0.6,
+        gridMain: 0x93c5fd,
+        gridSub: 0xbae6fd,
+        accentColor: 0x93c5fd,
+        nameJa: '残像ホールの攻略',
+        subName: 'ECHO HALL // SECTOR 40',
+        scenery: 'echohall',
+        style: 'cryo',
+      };
+    case 'm23b_conduit':
+      return {
+        floorRoughness: 0.15,
+        floorMetalness: 0.55,
+        gridMain: 0x2dd4bf,
+        gridSub: 0x67e8f9,
+        accentColor: 0x2dd4bf,
+        nameJa: 'オーロラ導管の突破',
+        subName: 'AURORA CONDUIT // SECTOR 41',
+        scenery: 'conduit',
+        style: 'cryo',
+      };
+    case 'm24_frost_boss':
+      return {
+        floorRoughness: 0.08,
+        floorMetalness: 0.75,
+        gridMain: 0x67e8f9,
+        gridSub: 0xe0f2fe,
+        accentColor: 0x67e8f9,
+        nameJa: '氷晶の記録庫：氷結機フロストコア',
+        subName: 'CRYSTAL VAULT // SECTOR 42 [MAP 6 BOSS]',
+        scenery: 'frostvault',
+        style: 'cryo',
+      };
+
     case 'm12_omega_boss':
     default:
       return {
@@ -1292,6 +1381,27 @@ export function buildStageEnvironment(mission: Mission, scene: THREE.Scene): Cov
       );
       seam.position.set(0, h / 2, 1.0);
       group.add(seam);
+    } else if (theme.style === 'cryo') {
+      // Frozen data column: rimed steel core wrapped in a faceted ice crystal with a cyan status strip
+      const core = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.9, 1.3, h, 6),
+        new THREE.MeshStandardMaterial({ color: 0x24384c, metalness: 0.8, roughness: 0.35 })
+      );
+      core.position.y = h / 2;
+      group.add(core);
+      const ice = new THREE.Mesh(
+        new THREE.OctahedronGeometry(2.0, 0),
+        new THREE.MeshPhysicalMaterial({ color: 0xbfe8ff, transparent: true, opacity: 0.55, metalness: 0.1, roughness: 0.06, clearcoat: 1, emissive: theme.accentColor, emissiveIntensity: 0.3, flatShading: true })
+      );
+      ice.scale.set(0.95, h / 4.4, 0.95);
+      ice.position.y = h / 2;
+      group.add(ice);
+      const strip = new THREE.Mesh(
+        new THREE.BoxGeometry(0.1, h * 0.7, 0.1),
+        new THREE.MeshBasicMaterial({ color: theme.accentColor })
+      );
+      strip.position.set(0, h / 2, 1.0);
+      group.add(strip);
     } else if (theme.style === 'monolith' || theme.style === 'omega') {
       // Obsidian Obelisk Monolith
       const mono = new THREE.Mesh(
@@ -1484,14 +1594,27 @@ const STAGE_DIFFICULTY: Record<string, number> = {
   // MAP 5: Silent Wastes
   m17_dunes: 4.80, m17b_graveyard: 4.95, m18_clockwork: 5.10, m18b_crater: 5.26,
   m19_chapel: 5.42, m19b_gate: 5.58, m20_warden_boss: 5.80,
+  // MAP 6: Frozen Archive
+  m21_outskirts: 6.00, m21b_cryobay: 6.16, m22_stacks: 6.32, m22b_servers: 6.48,
+  m23_echohall: 6.64, m23b_conduit: 6.80, m24_frost_boss: 7.05,
 };
 
-function getMissionDifficultyMultiplier(mission?: Mission): number {
+/** ハードモード: 同じMAP内の同じ位置のステージから3MAP(=21ステージ)先の難易度になる */
+const HARD_STAGE_OFFSET = 21;
+const STAGE_ORDER = Object.keys(STAGE_DIFFICULTY);
+
+function getMissionDifficultyMultiplier(mission?: Mission, hard = false): number {
   if (!mission) return 1.0;
   const ramp = STAGE_DIFFICULTY[mission.id];
+  if (hard && ramp !== undefined) {
+    const idx = STAGE_ORDER.indexOf(mission.id) + HARD_STAGE_OFFSET;
+    if (idx < STAGE_ORDER.length) return STAGE_DIFFICULTY[STAGE_ORDER[idx]];
+    // MAP5を超える分は、MAP5終盤の上昇ペースで外挿
+    return STAGE_DIFFICULTY[STAGE_ORDER[STAGE_ORDER.length - 1]] + (idx - (STAGE_ORDER.length - 1)) * 0.2;
+  }
   if (ramp !== undefined) return ramp;
   const threat = mission.threatLevel || 1;
-  const map = mission.mapId || 1;
+  const map = (mission.mapId || 1) + (hard ? 3 : 0);
   return 1.0 + (map - 1) * 0.65 + (threat - 1) * 0.22;
 }
 
@@ -2265,6 +2388,7 @@ export const BattleScene3D: React.FC<BattleScene3DProps> = ({
   weaponDamageLevels = {},
   nodeLevels = {},
   net = null,
+  hard = false,
   onFinishBattle,
   onExitToMenu,
 }) => {
@@ -6587,7 +6711,7 @@ export const BattleScene3D: React.FC<BattleScene3DProps> = ({
         }
       }
 
-      const diffMult = getMissionDifficultyMultiplier(mission);
+      const diffMult = getMissionDifficultyMultiplier(mission, hard);
       wave.enemies.forEach((enDef) => {
         // Balanced enemy squads for crisp, tactical, high-performance combat
         const spawnCount = Math.max(1, enDef.count);
@@ -6982,7 +7106,7 @@ export const BattleScene3D: React.FC<BattleScene3DProps> = ({
         { enemyTypeId: type, name: type === 'mite' ? 'Hive Mite' : type === 'splitling' ? 'Splitling' : type === 'pylon' ? 'Tesla Pylon' : type === 'mirage_echo' ? 'Mirage Echo' : type.toUpperCase(), count: 1, description: '' },
         scene,
         coverObjectsRef.current,
-        getMissionDifficultyMultiplier(mission),
+        getMissionDifficultyMultiplier(mission, hard),
         at,
       );
       if (owner) inst.ai = { owner };
@@ -10983,7 +11107,7 @@ export const BattleScene3D: React.FC<BattleScene3DProps> = ({
             <div className="sc-ghost" aria-hidden="true">{mission.code.replace('-BOSS', '')}</div>
             <span className="sc-corner tl" /><span className="sc-corner tr" /><span className="sc-corner bl" /><span className="sc-corner br" />
             <div className="sc-head">
-              <span className="sc-tag">{mission.isBoss ? 'BOSS OPERATION' : 'MISSION START'}</span>
+              <span className="sc-tag">{hard ? 'HARD // ' : ''}{mission.isBoss ? 'BOSS OPERATION' : 'MISSION START'}</span>
               <span className="sc-tag-ja">作戦開始</span>
             </div>
             <div className="sc-center">

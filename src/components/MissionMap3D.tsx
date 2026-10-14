@@ -56,15 +56,21 @@ type Status = 'locked' | 'cleared' | 'boss' | 'active';
 const statusKind = (m: Mission): Status => (!m.unlocked ? 'locked' : m.cleared ? 'cleared' : m.isBoss ? 'boss' : 'active');
 
 interface MissionMap3DProps {
+  /** 表示用ミッション (ハード表示中は、ハード側の解放/クリア状況に差し替え済み) */
   missions: Mission[];
+  /** 通常側の実進行 (MAP解放・ハード解放の判定用) */
+  baseMissions: Mission[];
   selectedMission: Mission | null;
   onSelectMission: (mission: Mission) => void;
   onStartMission: (mission: Mission) => void;
+  /** ハードモード (そのMAPのボス撃破後に選択可能) */
+  hardMode: boolean;
+  onToggleHard: (hard: boolean) => void;
   /** Debug shortcut (G): unlock every stage. */
   onUnlockAll?: () => void;
 }
 
-export const MissionMap3D: React.FC<MissionMap3DProps> = ({ missions, selectedMission, onSelectMission, onStartMission, onUnlockAll }) => {
+export const MissionMap3D: React.FC<MissionMap3DProps> = ({ missions, baseMissions, selectedMission, onSelectMission, onStartMission, hardMode, onToggleHard, onUnlockAll }) => {
   useEffect(() => {
     if (!onUnlockAll) return;
     const onKey = (e: KeyboardEvent) => {
@@ -87,14 +93,20 @@ export const MissionMap3D: React.FC<MissionMap3DProps> = ({ missions, selectedMi
   const [activeMapId, setActiveMapId] = useState<MapId>(selectedMission?.mapId || 1);
   const [lockNotice, setLockNotice] = useState<string | null>(null);
   const HUD = usePalette();
-  const mapColor = (_m: WorldMapDef) => HUD.accent;
-  const mapHex = (_m: WorldMapDef) => parseInt(HUD.accent.replace('#', ''), 16);
+  // ハードMAP表示中は黄色基調
+  const HARD_COLOR = '#facc15';
+  const isHardView = (id: number): boolean => {
+    const def = WORLD_MAPS.find((wm) => wm.id === id);
+    return hardMode && !!def && baseMissions.some((m) => m.id === def.bossMissionId && m.cleared);
+  };
+  const mapColor = (m: WorldMapDef) => (isHardView(m.id) ? HARD_COLOR : HUD.accent);
+  const mapHex = (m: WorldMapDef) => parseInt(mapColor(m).replace('#', ''), 16);
 
   // A map opens once the previous map's boss is cleared (or any of its stages is already unlocked, e.g. via save data / debug unlock).
   const isMapUnlocked = (id: number) => {
     const def = WORLD_MAPS.find((wm) => wm.id === id);
     if (!def?.requiredBossMissionId) return true;
-    return missions.some((m) => m.id === def.requiredBossMissionId && m.cleared) || missions.some((m) => m.mapId === id && m.unlocked);
+    return baseMissions.some((m) => m.id === def.requiredBossMissionId && m.cleared) || baseMissions.some((m) => m.mapId === id && m.unlocked);
   };
   const isMapLocked = (id: number) => !isMapUnlocked(id);
 
@@ -105,6 +117,7 @@ export const MissionMap3D: React.FC<MissionMap3DProps> = ({ missions, selectedMi
 
   const activeMapDef = WORLD_MAPS.find((wm) => wm.id === activeMapId) || WORLD_MAPS[0];
   const activeMapMissions = missions.filter((m) => m.mapId === activeMapId);
+  const hardOn = isHardView(activeMapId);
   const accent = mapColor(activeMapDef);
 
   const statusColor = (s: Status) =>
@@ -138,7 +151,7 @@ export const MissionMap3D: React.FC<MissionMap3DProps> = ({ missions, selectedMi
   actionsRef.current = { handleSelectMap, selectMission, missions };
 
   // Rebuild the scene only when what it draws changes (not on selection: that is read from a ref)
-  const progressKey = missions.map((m) => `${m.id}:${m.unlocked ? 1 : 0}${m.cleared ? 1 : 0}`).join('|');
+  const progressKey = (hardMode ? 'H' : 'N') + missions.map((m) => `${m.id}:${m.unlocked ? 1 : 0}${m.cleared ? 1 : 0}`).join('|');
 
   useEffect(() => {
     const container = mountRef.current;
@@ -642,6 +655,7 @@ export const MissionMap3D: React.FC<MissionMap3DProps> = ({ missions, selectedMi
   const selKind = selectedMission ? statusKind(selectedMission) : null;
   const selColor = selKind ? statusColor(selKind) : accent;
   const ctaColor = selectedMission?.isBoss && !selectedMission.cleared ? 'var(--hud-danger)' : accent;
+  const hardAvailable = !!selectedMission && baseMissions.some((m) => m.id === activeMapDef.bossMissionId && m.cleared);
   const hovered = hoveredId && !hoveredId.startsWith('map-') ? missions.find((m) => m.id === hoveredId) : null;
 
   const StatusIcon: React.FC<{ s: Status; className?: string }> = ({ s, className = 'w-3.5 h-3.5' }) =>
@@ -864,7 +878,7 @@ export const MissionMap3D: React.FC<MissionMap3DProps> = ({ missions, selectedMi
                       <span className="block text-[10px] font-cyber tracking-[0.18em] opacity-90">{wm.badge}</span>
                       <span className="block text-[11px] font-cyber font-bold tracking-wider">{wm.name.split('//')[0].trim()}</span>
                     </span>
-                    {missions.some((m) => m.id === wm.bossMissionId && m.cleared) && (
+                    {baseMissions.some((m) => m.id === wm.bossMissionId && m.cleared) && (
                       <CheckCircle2 className="w-3.5 h-3.5 ml-auto" style={{ color: isCur ? '#fff' : 'var(--hud-ok)' }} />
                     )}
                   </button>
@@ -1093,6 +1107,20 @@ export const MissionMap3D: React.FC<MissionMap3DProps> = ({ missions, selectedMi
             </div>
 
             {/* Sortie */}
+            {hardAvailable && (
+              <button
+                onClick={() => onToggleHard(!hardMode)}
+                className="shrink-0 h-10 flex items-center justify-between px-4 border text-xs font-cyber tracking-[0.2em] font-bold cursor-pointer transition-colors"
+                style={{
+                  borderColor: hardOn ? HARD_COLOR : 'var(--hud-line-strong)',
+                  color: hardOn ? HARD_COLOR : 'var(--hud-muted)',
+                  background: hardOn ? 'color-mix(in srgb, #facc15 14%, transparent)' : 'transparent',
+                }}
+              >
+                <span className="flex items-center gap-2"><Skull className="w-4 h-4" />HARD MODE <span className="font-gothic tracking-wider font-normal">ハードモード</span></span>
+                <span>{hardOn ? 'HARD MAP' : 'NORMAL'}</span>
+              </button>
+            )}
             {selectedMission.unlocked ? (
               <button
                 onClick={() => onStartMission(selectedMission)}
@@ -1109,7 +1137,7 @@ export const MissionMap3D: React.FC<MissionMap3DProps> = ({ missions, selectedMi
                 </span>
                 <Play className="w-9 h-9 fill-current" />
                 <span className="text-center leading-none">
-                  <span className="block text-[34px] font-black font-gothic tracking-[0.12em]">出撃開始</span>
+                  <span className="block text-[34px] font-black font-gothic tracking-[0.12em]">{hardOn ? 'ハード出撃' : '出撃開始'}</span>
                   <span className="mt-1.5 flex items-center justify-center gap-2 text-[11px] font-cyber tracking-[0.6em] opacity-85">
                     <span className="w-5 h-px bg-white/70" />
                     SORTIE

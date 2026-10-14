@@ -26,6 +26,8 @@ interface SaveData {
   unlockedNodeIds: string[];
   missionProgress: Record<string, { unlocked: boolean; cleared: boolean }>;
   selectedMissionId: string | null;
+  /** ハードMAPでクリア済みのミッションID */
+  hardCleared?: string[];
 }
 
 export interface RestoredState {
@@ -34,6 +36,7 @@ export interface RestoredState {
   skillNodes: SkillNode[];
   playerStats: PlayerStats;
   selectedMission: Mission | null;
+  hardCleared: string[];
 }
 
 const readSave = (): SaveData | null => {
@@ -98,7 +101,7 @@ export const loadGameState = (): RestoredState => {
   const selectedMission =
     missions.find((m) => m.id === save?.selectedMissionId) ?? missions[0] ?? null;
 
-  return { weapons, missions, skillNodes, playerStats, selectedMission };
+  return { weapons, missions, skillNodes, playerStats, selectedMission, hardCleared: save?.hardCleared ?? [] };
 };
 
 /** 進行状況を保存する。ストレージが使えない環境では何もしない。 */
@@ -116,6 +119,7 @@ export const saveGameState = (state: RestoredState) => {
       state.missions.map((m) => [m.id, { unlocked: !!m.unlocked, cleared: !!m.cleared }])
     ),
     selectedMissionId: state.selectedMission?.id ?? null,
+    hardCleared: state.hardCleared,
   };
   try {
     localStorage.setItem(SAVE_KEY, JSON.stringify(data));

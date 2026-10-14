@@ -83,7 +83,7 @@ export interface EnemyType {
   size: number;
 }
 
-export type MapId = 1 | 2 | 3 | 4 | 5;
+export type MapId = 1 | 2 | 3 | 4 | 5 | 6;
 
 export interface WorldMapDef {
   id: MapId;
@@ -100,7 +100,7 @@ export interface WorldMapDef {
 
 export interface Mission {
   id: string;
-  mapId: MapId; // 1: Gothic Metropolis, 2: Orbital Citadel, 3: Deep Research, 4: Tidal Ruins, 5: Silent Wastes
+  mapId: MapId; // 1: Gothic Metropolis, 2: Orbital Citadel, 3: Deep Research, 4: Tidal Ruins, 5: Silent Wastes, 6: Frozen Archive
   code: string;
   name: string;
   areaName: string;
@@ -143,6 +143,8 @@ export interface BattleResult {
     weaponUnlocked?: Weapon;
     nextMissionUnlocked?: Mission;
   };
+  /** ハードMAPでの戦闘結果 */
+  hard?: boolean;
 }
 
 export interface PlayerStats {
