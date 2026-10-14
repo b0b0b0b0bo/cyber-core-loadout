@@ -44,6 +44,8 @@ import { getPistolReloadPose } from '../utils/pistolReload';
 import { GUARD_PROFILES, MELEE_READY_POSE, LANCE_MAX_CHARGE, buildGuardFx, updateGuardFx } from '../utils/meleeGuards';
 import { getNodeLevel, scaledEffectValue } from '../data/nodeLevels';
 import { WORLD_MAPS } from '../data/initialData';
+import { NetSession } from '../utils/netplay';
+import { CoopBattle, CoopEnemy } from '../utils/coopBattle';
 
 interface BattleScene3DProps {
   mission: Mission;
@@ -52,6 +54,8 @@ interface BattleScene3DProps {
   skillNodes: SkillNode[];
   weaponDamageLevels?: Record<string, number>;
   nodeLevels?: Record<string, number>;
+  /** 協力プレイのセッション (ソロなら null) */
+  net?: NetSession | null;
   onFinishBattle: (result: BattleResult) => void;
   onExitToMenu: () => void;
 }
@@ -157,9 +161,19 @@ interface EnemyInstance {
   auxMesh?: THREE.Object3D;
   /** free-form AI memory */
   ai?: any;
+
+  // CO-OP (see utils/coopBattle.ts)
+  isPuppet?: boolean;
+  netId?: number;
+  netHp?: number;
+  netPos?: { x: number; y: number; z: number; ry: number };
+  netSnapHp?: number;
+  lastDamager?: string;
 }
 
 interface BulletInstance {
+  /** 協力プレイ: ホストの敵弾の見た目だけを再現する (被弾判定なし) */
+  visualOnly?: boolean;
   mesh: THREE.Mesh | THREE.Group;
   direction: THREE.Vector3;
   speed: number;
@@ -2227,6 +2241,7 @@ export const BattleScene3D: React.FC<BattleScene3DProps> = ({
   skillNodes,
   weaponDamageLevels = {},
   nodeLevels = {},
+  net = null,
   onFinishBattle,
   onExitToMenu,
 }) => {
@@ -2295,6 +2310,11 @@ export const BattleScene3D: React.FC<BattleScene3DProps> = ({
 
   // Combat status refs
   const playerHpRef = useRef(100);
+  const netRef = useRef(net);
+  netRef.current = net;
+  /** 協力プレイ: ダウン中 (無敵・攻撃不可。次のウェーブか味方の救助で復帰) */
+  const koRef = useRef(false);
+  const [koUi, setKoUi] = useState(false);
   const playerShieldRef = useRef(80);
   const staminaRef = useRef(100);
   const dashCooldownRef = useRef(0);
@@ -2636,6 +2656,7 @@ export const BattleScene3D: React.FC<BattleScene3DProps> = ({
 
   const maxHpRef = useRef(100);
   const maxShieldRef = useRef(80);
+  const lastShieldHudSyncRef = useRef(0);
 
   // Calculate passives
   useEffect(() => {
@@ -6451,6 +6472,14 @@ export const BattleScene3D: React.FC<BattleScene3DProps> = ({
     intermissionTimerRef.current = 0;
     prevLivingCountRef.current = -1;
 
+    // ── CO-OP: ホストが敵を動かし、ゲストは人形を表示する ──
+    const netSession = netRef.current;
+    const isGuest = !!netSession && !netSession.isHost && netSession.players.length > 1;
+    let coop: CoopBattle | null = null;
+    /** ホスト: いま処理中の敵が狙っているリモートプレイヤー (null = ホスト自身) */
+    let activeRemoteId: string | null = null;
+    let reviveLocal: (fraction: number) => void = () => {};
+
     // The wave cut-in plays first; the enemies appear once it has finished (see gameLoop).
     let pendingWaveSpawn: { idx: number; left: number } | null = null;
 
@@ -6463,6 +6492,8 @@ export const BattleScene3D: React.FC<BattleScene3DProps> = ({
       setWaveCutin({ wave: waveIdx + 1, total: missionWaves.length, final: wave.isFinalWave, boss: wave.isBossWave, bossName: cutinBoss?.name });
       window.setTimeout(() => setWaveCutin(null), cutinMs);
       pendingWaveSpawn = { idx: waveIdx, left: cutinMs / 1000 };
+      coop?.sendWave({ wave: waveIdx + 1, total: missionWaves.length, final: wave.isFinalWave, boss: wave.isBossWave, bossName: cutinBoss?.name });
+      reviveLocal(0.5);
     };
 
     const performWaveSpawn = (waveIdx: number) => {
@@ -6487,6 +6518,11 @@ export const BattleScene3D: React.FC<BattleScene3DProps> = ({
         const spawnCount = Math.max(1, enDef.count);
         for (let i = 0; i < spawnCount; i++) {
           const enemyInst = createEnemyInstance(enDef, scene, coverObjectsRef.current, diffMult);
+          if (coop) {
+            // 人数が増えるほど敵は硬くなる
+            const mult = 1 + 0.6 * (coop.playerCount - 1);
+            enemyInst.hp = enemyInst.maxHp = Math.round(enemyInst.maxHp * mult);
+          }
           enemiesRef.current.push(enemyInst);
         }
       });
@@ -6630,6 +6666,7 @@ export const BattleScene3D: React.FC<BattleScene3DProps> = ({
         requestLock();
       }
       prevMousePos.current = { x: e.clientX, y: e.clientY };
+      if (koRef.current) return; // ダウン中は攻撃・防御できない
 
       if (e.button === 0) {
         isMouseDownRef.current = true;
@@ -6724,6 +6761,7 @@ export const BattleScene3D: React.FC<BattleScene3DProps> = ({
     const handleBattleEnd = (isVictory: boolean) => {
       if (battleFinished) return;
       battleFinished = true;
+      coop?.sendEnd(isVictory);
 
       if (document.exitPointerLock) {
         try {
@@ -6774,8 +6812,33 @@ export const BattleScene3D: React.FC<BattleScene3DProps> = ({
       cameraShakeRef.current = { amp, until: now + dur, dur };
     };
     let minionsSpawnedThisFrame = 0;
+    /** HP が 0 になった: ソロなら敗北、協力ならダウン (全員ダウンでホストが敗北を宣言) */
+    const onLocalHpZero = () => {
+      if (!coop) {
+        handleBattleEnd(false);
+        return;
+      }
+      if (koRef.current || battleFinished) return;
+      koRef.current = true;
+      setKoUi(true);
+      playerHpRef.current = 0;
+      isMouseDownRef.current = false;
+      isAimingRef.current = false;
+      sound.playDefeat();
+      setAnnouncement('DOWN // 味方が近くにいると復帰 ／ 次のウェーブで復帰');
+      syncHudState();
+    };
+    reviveLocal = (fraction: number) => {
+      if (!koRef.current) return;
+      koRef.current = false;
+      setKoUi(false);
+      playerHpRef.current = Math.max(1, Math.round(maxHpRef.current * fraction));
+      playerShieldRef.current = Math.max(playerShieldRef.current, maxShieldRef.current * 0.5);
+      setAnnouncement('REVIVED // 戦線復帰');
+      syncHudState();
+    };
     const hurtPlayer: HurtFn = (dmg, label, color, opts = {}) => {
-      if (battleFinished) return;
+      if (battleFinished || koRef.current) return;
       // 溜め技の発動中(操作不能時間)は被ダメージ 75% カット
       const base = Math.round(dmg * (isSweepingRef.current ? 0.25 : 1));
       if (opts.guard && isGuardingRef.current) {
@@ -6810,9 +6873,10 @@ export const BattleScene3D: React.FC<BattleScene3DProps> = ({
           playerVelocity.current.z += kz * opts.knockBack;
         }
       }
-      if (playerHpRef.current <= 0) handleBattleEnd(false);
+      if (playerHpRef.current <= 0) onLocalHpZero();
     };
     const fireEnemyBullet = (spec: EnemyBulletSpec) => {
+      coop?.sendBullet(spec);
       let mesh: THREE.Mesh | THREE.Group;
       if (spec.mesh) {
         mesh = spec.mesh as THREE.Group;
@@ -6943,6 +7007,89 @@ export const BattleScene3D: React.FC<BattleScene3DProps> = ({
     };
     arsenalCtxRef.current = arsenalCtx;
 
+    const remoteHurt = (id: string): HurtFn => (dmg, label, color, opts = {}) => {
+      coop?.sendHit(id, dmg, label, color, opts as Record<string, unknown>);
+    };
+    if (netSession && netSession.players.length > 1) {
+      coop = new CoopBattle(netSession, {
+        scene,
+        enemies: () => enemiesRef.current as unknown as CoopEnemy[],
+        local: () => ({
+          pos: playerPos.current,
+          yaw: currentRotation.current.yaw,
+          pitch: currentRotation.current.pitch,
+          hp: playerHpRef.current,
+          maxHp: maxHpRef.current,
+          ko: koRef.current,
+          color: '#22d3ee',
+        }),
+        spawnPuppet: (typeId, name, x, z) =>
+          {
+            const inst = createEnemyInstance({ enemyTypeId: typeId, name, count: 1, description: '' }, scene, coverObjectsRef.current, 1, new THREE.Vector3(x, 0, z));
+            enemiesRef.current.push(inst);
+            return inst as unknown as CoopEnemy;
+          },
+        removePuppet: (e) => {
+          const en = e as unknown as EnemyInstance;
+          en.isDead = true;
+          sound.playEnemyExplode();
+          spawn3DHitSparks(en.mesh.position.clone().add(new THREE.Vector3(0, 0.8, 0)), '#38bdf8', 18);
+          scene.remove(en.mesh);
+          if (en.groundRingMesh) {
+            scene.remove(en.groundRingMesh);
+            en.groundRingMesh.geometry.dispose();
+          }
+          disposeEnemyAux(en, scene);
+          battleStats.current.kills++;
+          killsRef.current++;
+          scrapCollectedRef.current += en.scrapValue;
+          battleStats.current.scrapEarned += en.scrapValue;
+          spawnDamageText(`+${en.scrapValue} SCRAP`, '#10b981');
+          const i = enemiesRef.current.indexOf(en);
+          if (i >= 0) enemiesRef.current.splice(i, 1);
+          syncHudState();
+        },
+        hurtLocal: (dmg, label, color, opts) => hurtPlayer(dmg, label, color, opts as Parameters<HurtFn>[3]),
+        onWave: (w) => {
+          setCurrentWave(w.wave);
+          setTotalWaves(w.total);
+          setWaveCutin({ wave: w.wave, total: w.total, final: w.final, boss: w.boss, bossName: w.bossName });
+          window.setTimeout(() => setWaveCutin(null), w.boss ? 3600 : 2300);
+          sound.playDash();
+          reviveLocal(0.5);
+        },
+        onEnd: (victory) => handleBattleEnd(victory),
+        onAnnounce: (text) => setAnnouncement(text),
+        addHazardMirror: (spec) => {
+          // 見た目だけ (ダメージ判定はホストが行い、被弾は `hit` で届く)
+          hazards.add({ ...spec, damage: 0, drop: undefined, track: undefined, owner: undefined, onBurst: undefined });
+        },
+        addBulletMirror: (b) => {
+          const mesh = new THREE.Mesh(new THREE.SphereGeometry(b.size, 10, 8), new THREE.MeshBasicMaterial({ color: b.color }));
+          mesh.position.set(b.from[0], b.from[1], b.from[2]);
+          scene.add(mesh);
+          bulletsRef.current.push({
+            mesh,
+            direction: new THREE.Vector3(b.dir[0], b.dir[1], b.dir[2]).normalize(),
+            speed: b.speed,
+            damage: 0,
+            lifetime: b.life,
+            isPlayer: false,
+            prevPosition: mesh.position.clone(),
+            bulletRadius: b.radius,
+            visualOnly: true,
+          });
+        },
+        setLiving: () => {},
+        revive: (fraction) => reviveLocal(fraction),
+        notify: (text) => setAnnouncement(text),
+      });
+      if (coop.isHost) hazards.onAdd = (spec) => coop?.sendHazard(spec);
+      // 全員が同じ場所に重ならないよう、開始位置を横にずらす
+      const myIdx = Math.max(0, netSession.players.findIndex((pl) => pl.id === netSession.myId));
+      playerPos.current.x += (myIdx - (netSession.players.length - 1) / 2) * 3;
+    }
+
     const gameLoop = () => {
       animationId = requestAnimationFrame(gameLoop);
       const rawDelta = Math.min(0.06, clock.getDelta());
@@ -6971,7 +7118,7 @@ export const BattleScene3D: React.FC<BattleScene3DProps> = ({
         } else if (performance.now() - intro.startedAt >= STAGE_INTRO_SECONDS * 1000) {
           intro.done = true;
           setIntroPhase('done');
-          spawnCurrentWave(0);
+          if (!isGuest) spawnCurrentWave(0);
         }
       } else {
         battleStats.current.timeSeconds += delta;
@@ -8132,7 +8279,15 @@ export const BattleScene3D: React.FC<BattleScene3DProps> = ({
       // 5. STAT REGENERATION & DYNAMITE RECHARGE
       dashCooldownRef.current = Math.max(0, dashCooldownRef.current - delta);
       staminaRef.current = 100;
-      playerShieldRef.current = Math.min(80, playerShieldRef.current + delta * 5);
+      if (playerShieldRef.current < maxShieldRef.current) {
+        playerShieldRef.current = Math.min(maxShieldRef.current, playerShieldRef.current + delta * 5);
+        // HUDはイベント時しか更新されないため、回復中は約15Hzで継続的に反映する
+        const shieldNow = performance.now();
+        if (shieldNow - lastShieldHudSyncRef.current > 66 || playerShieldRef.current >= maxShieldRef.current) {
+          lastShieldHudSyncRef.current = shieldNow;
+          syncHudState();
+        }
+      }
 
       const curSlot = currentSlotRef.current;
       const curW = getActiveWeapon();
@@ -8686,7 +8841,7 @@ export const BattleScene3D: React.FC<BattleScene3DProps> = ({
           }
           _tempClosest.copy(oldPos).addScaledVector(_tempSeg, t);
 
-          if (_tempClosest.distanceTo(playerCenter) <= 1.35) {
+          if (!bullet.visualOnly && !koRef.current && _tempClosest.distanceTo(playerCenter) <= 1.35) {
             hit = true;
             // 溜め技の発動中(操作不能時間)は被ダメージ 75% カット
             const bulletDmg = Math.round(bullet.damage * (isSweepingRef.current ? 0.25 : 1));
@@ -8707,7 +8862,26 @@ export const BattleScene3D: React.FC<BattleScene3DProps> = ({
               spawnDamageText(`-${bulletDmg}`, '#ef4444');
             }
             if (playerHpRef.current <= 0) {
-              handleBattleEnd(false);
+              onLocalHpZero();
+            }
+          }
+          // CO-OP (ホスト): 味方への被弾判定。ダメージ処理は本人の側で行う
+          if (!hit && !bullet.visualOnly && coop?.isHost) {
+            for (const r of coop.remoteList) {
+              if (r.ko || !r.seen) continue;
+              const rc = r.eye.clone();
+              rc.y += 0.9;
+              let rt = 0;
+              if (segLenSq > 0.00001) {
+                rt = _tempToCenter.subVectors(rc, oldPos).dot(_tempSeg) / segLenSq;
+                rt = Math.max(0, Math.min(1, rt));
+              }
+              _tempClosest.copy(oldPos).addScaledVector(_tempSeg, rt);
+              if (_tempClosest.distanceTo(rc) <= 1.35) {
+                hit = true;
+                coop.sendHit(r.id, Math.round(bullet.damage), '', '#ef4444', { guard: 'projectile' });
+                break;
+              }
             }
           }
         }
@@ -9352,12 +9526,20 @@ export const BattleScene3D: React.FC<BattleScene3DProps> = ({
       combatCtx.delta = delta;
       combatCtx.enemies = enemiesRef.current;
       combatCtx.playerYaw = currentRotation.current.yaw;
-      hazards.update(delta, combatCtx.time, playerPos.current, hurtPlayer);
+      if (coop) {
+        coop.update(delta);
+        if (playerHpRef.current <= 0 && !koRef.current) onLocalHpZero();
+        if (coop.isHost && !battleFinished && coop.allDown(koRef.current)) handleBattleEnd(false);
+      }
+      const hazardTargets = coop?.isHost
+        ? coop.remoteList.filter((r) => !r.ko && r.seen).map((r) => ({ pos: r.eye, hurt: remoteHurt(r.id) }))
+        : undefined;
+      hazards.update(delta, combatCtx.time, playerPos.current, hurtPlayer, hazardTargets);
       minionsSpawnedThisFrame = 0;
 
       // 9. ENEMY AI
       let livingCount = 0;
-      enemiesRef.current.forEach((enemy) => {
+      const stepEnemy = (enemy: EnemyInstance) => {
         if (enemy.isDead) return;
 
         // HELIX FLARE: a marked enemy takes extra damage from every hit that landed this frame
@@ -9372,11 +9554,11 @@ export const BattleScene3D: React.FC<BattleScene3DProps> = ({
         enemy.vulnPrevHp = enemy.hp;
 
         // APEX: frontal shield / deflect / rewind tracking act on this frame's damage before the death check
-        if (isApexCategory(enemy.category)) {
+        if (isApexCategory(enemy.category) && !enemy.isPuppet) {
           apexDamageGate(enemy, combatCtx, Math.hypot(playerPos.current.x - enemy.mesh.position.x, playerPos.current.z - enemy.mesh.position.z));
         }
 
-        if (enemy.hp <= 0) {
+        if (enemy.hp <= 0 && !enemy.isPuppet) {
           enemy.isDead = true;
           if (isApexCategory(enemy.category)) apexOnDeath(enemy, combatCtx);
           sound.playEnemyExplode();
@@ -9546,6 +9728,29 @@ export const BattleScene3D: React.FC<BattleScene3DProps> = ({
         // Status Effects 2: Shock Timer Tick
         if ((enemy.shockTimer ?? 0) > 0) {
           enemy.shockTimer = (enemy.shockTimer ?? 0) - delta;
+        }
+
+        // CO-OP (ゲスト): ホストの敵の人形。状態異常のダメージ以外は動かさず、スナップショットに追従させる
+        if (enemy.isPuppet) {
+          enemy.velocity.set(0, 0, 0);
+          coop?.stepPuppet(enemy as unknown as CoopEnemy, delta);
+          if (enemy.groundRingMesh) enemy.groundRingMesh.position.set(enemy.mesh.position.x, 0.04, enemy.mesh.position.z);
+          if (enemy.overheadGroup) enemy.overheadGroup.quaternion.copy(camera.quaternion);
+          if (enemy.hpBarMesh) {
+            const hpRatio = Math.max(0.001, Math.min(1.0, enemy.hp / enemy.maxHp));
+            enemy.hpBarMesh.scale.x = hpRatio;
+            enemy.hpBarMesh.position.x = -(1.34 * (1 - hpRatio)) / 2;
+          }
+          const puppetAnim = { mesh: enemy.mesh, shootCooldown: 1, attackCooldown: 1, near: false };
+          if (enemy.category === 'boss') {
+            const phase = enemy.bossPhase ?? 1;
+            animateBoss(enemy.mesh, clock.getElapsedTime(), delta, phase);
+            const bossRig = enemy.mesh.userData.bossRefs?.rig as THREE.Object3D | undefined;
+            if (bossRig) animateBossMotion(puppetAnim, bossRig, clock.getElapsedTime(), delta, phase);
+          } else {
+            animateEnemy(puppetAnim, clock.getElapsedTime(), delta);
+          }
+          return;
         }
 
         // Status Effects 3: Frozen immobilization
@@ -10003,7 +10208,15 @@ export const BattleScene3D: React.FC<BattleScene3DProps> = ({
               }
 
               // Check if player is caught in ground slam radius (5.5m)
-              if (dist <= 5.5 && playerPos.current.y <= 2.2) {
+              if (activeRemoteId && coop) {
+                if (dist <= 5.5 && playerPos.current.y <= 2.2) {
+                  coop.sendHit(activeRemoteId, Math.round(enemy.damage * 1.3), 'GROUND SLAM', '#f97316', {
+                    knockUp: 8.5,
+                    knockBack: 10,
+                    from: { x: enemy.mesh.position.x, z: enemy.mesh.position.z },
+                  });
+                }
+              } else if (dist <= 5.5 && playerPos.current.y <= 2.2 && !koRef.current) {
                 const slamDmg = Math.round(enemy.damage * 1.3 * (isSweepingRef.current ? 0.25 : 1)); // 溜め技中は被ダメージ 75% カット
                 sound.playHurt();
                 setDamageVignette(true);
@@ -10300,7 +10513,12 @@ export const BattleScene3D: React.FC<BattleScene3DProps> = ({
           const meleeTaken = Math.round(enemy.damage * (isSweepingRef.current ? 0.25 : 1));
           let incomingDmg = meleeTaken;
 
-          if (isGuardingRef.current) {
+          if (activeRemoteId && coop) {
+            // CO-OP: 狙っているのは味方。被弾処理は本人の側で行う
+            coop.sendHit(activeRemoteId, enemy.damage, '', '#ef4444', { guard: 'melee' });
+          } else if (koRef.current) {
+            // ダウン中は無敵
+          } else if (isGuardingRef.current) {
             applyGuardBlockRef.current(incomingDmg, 'melee', enemy);
           } else {
             sound.playHurt();
@@ -10317,9 +10535,45 @@ export const BattleScene3D: React.FC<BattleScene3DProps> = ({
             spawnDamageText(`-${meleeTaken}`, '#ef4444');
           }
 
-          if (playerHpRef.current <= 0) {
-            handleBattleEnd(false);
+          if (!activeRemoteId && playerHpRef.current <= 0) {
+            onLocalHpZero();
           }
+        }
+      };
+      const localPosVec = playerPos.current;
+      enemiesRef.current.forEach((enemy) => {
+        activeRemoteId = null;
+        // CO-OP (ホスト): 敵は最も近い (ダウンしていない) プレイヤーを狙う
+        if (coop && coop.isHost && !enemy.isDead && !enemy.isPuppet) {
+          let best = koRef.current ? Infinity : Math.hypot(localPosVec.x - enemy.mesh.position.x, localPosVec.z - enemy.mesh.position.z);
+          for (const r of coop.remoteList) {
+            if (r.ko || !r.seen) continue;
+            const d = Math.hypot(r.eye.x - enemy.mesh.position.x, r.eye.z - enemy.mesh.position.z);
+            if (d < best) {
+              best = d;
+              activeRemoteId = r.id;
+            }
+          }
+          const target = activeRemoteId ? coop.getRemote(activeRemoteId) : undefined;
+          if (target) {
+            playerPos.current = target.eye;
+            combatCtx.player = target.eye;
+            combatCtx.playerYaw = target.yaw;
+            combatCtx.hurt = remoteHurt(target.id);
+          } else {
+            activeRemoteId = null;
+          }
+        }
+        try {
+          stepEnemy(enemy);
+        } finally {
+          if (playerPos.current !== localPosVec) {
+            playerPos.current = localPosVec;
+            combatCtx.player = localPosVec;
+            combatCtx.playerYaw = currentRotation.current.yaw;
+            combatCtx.hurt = hurtPlayer;
+          }
+          activeRemoteId = null;
         }
       });
 
@@ -10350,7 +10604,7 @@ export const BattleScene3D: React.FC<BattleScene3DProps> = ({
       }
 
       // 10. WAVE ADVANCEMENT & VICTORY TRIGGER
-      if (livingCount === 0 && enemiesRef.current.length > 0 && !pendingWaveSpawn) {
+      if (!isGuest && livingCount === 0 && enemiesRef.current.length > 0 && !pendingWaveSpawn) {
         if (!isIntermissionRef.current) {
           if (currentWaveIndexRef.current < wavesListRef.current.length - 1) {
             // Wave cleared! Start intermission breather
@@ -10390,6 +10644,7 @@ export const BattleScene3D: React.FC<BattleScene3DProps> = ({
 
     return () => {
       cancelAnimationFrame(animationId);
+      coop?.dispose();
       hazards.clear();
       arsenal.clear();
       arsenalRef.current = null;
@@ -10564,6 +10819,12 @@ export const BattleScene3D: React.FC<BattleScene3DProps> = ({
       {/* Low HP pulse + hurt flash */}
       {hudStats.hp > 0 && hudStats.hp / hudStats.maxHp <= 0.3 && <div className="absolute inset-0 pointer-events-none bh-lowhp" />}
       {damageVignette && <div className="absolute inset-0 pointer-events-none bh-hurt" />}
+      {koUi && (
+        <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center bg-red-950/40">
+          <div className="text-5xl font-black tracking-[0.4em] text-red-400 font-cyber">DOWN</div>
+          <div className="mt-3 text-sm text-slate-200 font-gothic">味方がそばに4秒いると復帰 ／ 次のウェーブで復帰</div>
+        </div>
+      )}
 
       {/* ================= INFIGHT GUARD BADGE (武器ごとの防御技) ================= */}
       {hudStats.isGuarding && (() => {

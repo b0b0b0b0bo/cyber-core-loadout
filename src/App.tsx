@@ -17,6 +17,8 @@ import { SkillTreeScreen } from './components/SkillTreeScreen';
 import { BattleScene3D } from './components/BattleScene3D';
 import { ResultScreen } from './components/ResultScreen';
 import { SettingsPanel } from './components/SettingsPanel';
+import { CoopPanel } from './components/CoopPanel';
+import { NetSession } from './utils/netplay';
 import { cutCorners } from './theme';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -27,6 +29,7 @@ import {
   VolumeX,
   Cpu,
   Settings,
+  Users,
 } from 'lucide-react';
 
 const NAV_ITEMS: { screen: ScreenState; label: string; sub: string; icon: React.ReactNode }[] = [
@@ -59,6 +62,45 @@ export default function App() {
   // Sound Mute State
   const [isMuted, setIsMuted] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
+  // CO-OP (WebRTC P2P)
+  const [net, setNet] = useState<NetSession | null>(null);
+  const [isCoopOpen, setIsCoopOpen] = useState(false);
+  const [netNotice, setNetNotice] = useState('');
+  const [, setNetTick] = useState(0);
+  const missionsRef = React.useRef(missions);
+  missionsRef.current = missions;
+  const noticeTimer = React.useRef<number | undefined>(undefined);
+  const showNotice = (text: string) => {
+    setNetNotice(text);
+    window.clearTimeout(noticeTimer.current);
+    noticeTimer.current = window.setTimeout(() => setNetNotice(''), 3500);
+  };
+
+  useEffect(() => {
+    if (!net) return;
+    const offChange = net.onChange(() => setNetTick((n) => n + 1));
+    const off = net.on((msg) => {
+      if (msg.t === 'start' && !net.isHost) {
+        const m = missionsRef.current.find((x) => x.id === msg.missionId);
+        if (m) {
+          setSelectedMission(m);
+          setIsCoopOpen(false);
+          setCurrentScreen('BATTLE');
+        }
+      } else if (msg.t === 'host-lost') {
+        showNotice('ホストとの接続が切れました');
+        setNet(null);
+        setCurrentScreen((cur) => (cur === 'BATTLE' ? 'MISSION_SELECT' : cur));
+      } else if (msg.t === 'left') {
+        showNotice(`${net.nameOf(String(msg.id))} が退出しました`);
+      }
+    });
+    return () => {
+      off();
+      offChange();
+    };
+  }, [net]);
 
   // Start ambient on first interaction
   useEffect(() => {
@@ -167,7 +209,12 @@ export default function App() {
   // Start Mission
   const handleStartMission = (mission: Mission) => {
     sound.playUiClick();
+    if (net && !net.isHost && net.players.length > 0) {
+      showNotice('出撃はホストが行います。ホストの出撃を待ってください');
+      return;
+    }
     setSelectedMission(mission);
+    if (net?.isHost && net.peerCount > 0) net.send({ t: 'start', missionId: mission.id });
     setCurrentScreen('BATTLE');
   };
 
@@ -281,6 +328,23 @@ export default function App() {
             </div>
 
             <button
+              onClick={() => {
+                sound.playUiClick();
+                setIsCoopOpen(true);
+              }}
+              className={`relative p-2 border transition-colors cursor-pointer ${
+                net && net.players.length > 1 ? 'border-hud-ok/60 text-hud-ok' : 'border-hud-line hover:border-hud-accent/60 text-hud-muted hover:text-hud-accent'
+              }`}
+              title="協力プレイ (CO-OP)"
+            >
+              <Users className="w-4 h-4" />
+              {net && net.players.length > 1 && (
+                <span className="absolute -top-1 -right-1 text-[9px] leading-none px-1 py-0.5 bg-hud-ok text-hud-on-accent font-cyber font-bold">
+                  {net.players.length}
+                </span>
+              )}
+            </button>
+            <button
               onClick={handleToggleMute}
               className="p-2 border border-hud-line hover:border-hud-line-strong text-hud-muted hover:text-hud-text transition-colors cursor-pointer"
               title={isMuted ? 'サウンドを有効化' : 'ミュート'}
@@ -299,6 +363,23 @@ export default function App() {
             </button>
           </div>
         </header>
+      )}
+
+      <AnimatePresence>
+        {isCoopOpen && (
+          <CoopPanel
+            net={net}
+            onNetChange={setNet}
+            missionName={selectedMission?.name ?? null}
+            onClose={() => setIsCoopOpen(false)}
+          />
+        )}
+      </AnimatePresence>
+
+      {netNotice && (
+        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-[110] px-4 py-2 bg-hud-bg border border-hud-accent/60 text-hud-accent text-xs font-gothic">
+          {netNotice}
+        </div>
       )}
 
       <AnimatePresence>
@@ -394,6 +475,7 @@ export default function App() {
                 skillNodes={skillNodes}
                 weaponDamageLevels={playerStats.weaponDamageLevels}
                 nodeLevels={playerStats.nodeLevels}
+                net={net}
                 onFinishBattle={handleFinishBattle}
                 onExitToMenu={() => setCurrentScreen('MISSION_SELECT')}
               />
@@ -413,6 +495,12 @@ export default function App() {
                 result={lastBattleResult}
                 onRetry={() => {
                   sound.playUiClick();
+                  if (net && !net.isHost && net.players.length > 0) {
+                    showNotice('ホストの再出撃を待っています');
+                    setCurrentScreen('MISSION_SELECT');
+                    return;
+                  }
+                  if (net?.isHost && net.peerCount > 0 && selectedMission) net.send({ t: 'start', missionId: selectedMission.id });
                   setCurrentScreen('BATTLE');
                 }}
                 onGoToUpgrade={() => {

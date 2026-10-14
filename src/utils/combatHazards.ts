@@ -24,6 +24,12 @@ export interface HurtOptions {
   guard?: 'melee' | 'projectile';
 }
 
+/** 協力プレイ: ローカルプレイヤー以外の被弾判定対象 */
+export interface HazardTarget {
+  pos: THREE.Vector3;
+  hurt: HurtFn;
+}
+
 export type HurtFn = (dmg: number, label: string, color: string, opts?: HurtOptions) => void;
 
 export interface HazardSpec {
@@ -169,6 +175,8 @@ export class CombatHazards {
   private fx: TransientFx[] = [];
   /** called with an amplitude when something big lands near the player */
   onShake?: (amp: number, dur: number) => void;
+  /** 協力プレイ: 新しい範囲攻撃マーカーが置かれたときに呼ばれる (ゲストへ見た目を同期するため) */
+  onAdd?: (spec: HazardSpec) => void;
 
   constructor(scene: THREE.Scene) {
     this.scene = scene;
@@ -180,6 +188,7 @@ export class CombatHazards {
 
   // ───────────────────────── hazards ─────────────────────────
   add(spec: HazardSpec): Hazard {
+    this.onAdd?.(spec);
     const group = new THREE.Group();
     group.position.set(spec.x, FLOOR_Y, spec.z);
     group.rotation.y = spec.angle ?? 0;
@@ -450,7 +459,7 @@ export class CombatHazards {
    * @param player eye position of the player
    * @param hurt   damage callback
    */
-  update(dt: number, time: number, player: THREE.Vector3, hurt: HurtFn): void {
+  update(dt: number, time: number, player: THREE.Vector3, hurt: HurtFn, extras: HazardTarget[] = []): void {
     const feet = player.y - EYE_Y;
     const airborne = feet > 0.55;
 
@@ -516,6 +525,18 @@ export class CombatHazards {
               from: { x: h.x, z: h.z },
             });
           }
+          // 協力プレイ: 他プレイヤーも同じ範囲攻撃で被弾する
+          if (h.damage > 0) {
+            for (const ex of extras) {
+              if (!this.contains(h, ex.pos.x, ex.pos.z) || (h.jumpable && ex.pos.y - EYE_Y > 0.55)) continue;
+              hit = true;
+              ex.hurt(h.damage, h.label, '#' + new THREE.Color(h.color).getHexString(), {
+                knockUp: h.knockUp,
+                knockBack: h.knockBack,
+                from: { x: h.x, z: h.z },
+              });
+            }
+          }
           this.burstFx(h);
           const d = Math.hypot(player.x - h.x, player.z - h.z);
           if (h.shake && this.onShake) this.onShake(h.shake * Math.max(0.15, 1 - d / 30), 0.35);
@@ -542,6 +563,7 @@ export class CombatHazards {
       const live = b.t >= b.warn;
       const ramp = live ? Math.min(1, (b.t - b.warn) / 0.12) * Math.min(1, (b.warn + b.life - b.t) / 0.15) : 0;
       let touching = false;
+      const touchingExtra: boolean[] = extras.map(() => false);
       b.spokesG.forEach((s, idx) => {
         const a = b.angleAt(b.t, idx);
         s.root.position.set(org.x, b.height, org.z);
@@ -568,11 +590,23 @@ export class CombatHazards {
           const beamTop = b.height + b.width * 0.5;
           const above = b.jumpable && feet > beamTop - 0.15;
           if (along > 0 && along < b.length && perp < b.width * 0.5 + PLAYER_R && !above && ramp > 0.5) touching = true;
+          extras.forEach((ex, xi) => {
+            const edx = ex.pos.x - org.x;
+            const edz = ex.pos.z - org.z;
+            const eAlong = edx * fx + edz * fz;
+            const ePerp = Math.abs(edx * fz - edz * fx);
+            const eAbove = b.jumpable && ex.pos.y - EYE_Y > beamTop - 0.15;
+            if (eAlong > 0 && eAlong < b.length && ePerp < b.width * 0.5 + PLAYER_R && !eAbove && ramp > 0.5) touchingExtra[xi] = true;
+          });
         }
       });
-      if (touching && b.t - b.lastHit >= b.tick) {
+      if ((touching || touchingExtra.some(Boolean)) && b.t - b.lastHit >= b.tick) {
         b.lastHit = b.t;
-        hurt(b.damage, b.label, '#' + new THREE.Color(b.color).getHexString(), { guard: 'projectile' });
+        const col = '#' + new THREE.Color(b.color).getHexString();
+        if (touching) hurt(b.damage, b.label, col, { guard: 'projectile' });
+        extras.forEach((ex, xi) => {
+          if (touchingExtra[xi]) ex.hurt(b.damage, b.label, col, { guard: 'projectile' });
+        });
       }
     }
 
