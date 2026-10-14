@@ -70,6 +70,20 @@ export const loadGameState = (): RestoredState => {
     unlocked: save ? save.unlockedNodeIds.includes(n.id) || n.unlocked : n.unlocked,
   }));
 
+  // 後から差し込まれた補助ノード(fill_*)は、先にある子ノードを解放済みなら自動で解放済みにする
+  if (save) {
+    for (let changed = true; changed; ) {
+      changed = false;
+      for (const n of skillNodes) {
+        if (n.unlocked || !n.id.startsWith('fill_')) continue;
+        if (skillNodes.some((c) => c.unlocked && c.prerequisites.includes(n.id))) {
+          n.unlocked = true;
+          changed = true;
+        }
+      }
+    }
+  }
+
   const playerStats: PlayerStats = save
     ? {
         ...INITIAL_PLAYER_STATS,

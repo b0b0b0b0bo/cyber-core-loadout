@@ -5703,6 +5703,70 @@ INITIAL_SKILL_NODES.push(
   },
 );
 
+// 既存ノードの間にカテゴリ別のステータス強化ノードを差し込んで、ツリーを水増しする。
+//  - 既存の形(分岐・前提関係)は保ったまま、親 → 子の辺の途中に1ノードずつ挟む
+//  - ID は `fill_<子ノードID>`。子ノードを解放済みのセーブでは自動的に解放済みになる (save.ts)
+const FILLER_VARIANTS: Record<string, Array<{ name: string; label: string; stat: string; value: number; iconType: SkillNode['iconType'] }>> = {
+  INFIGHT: [
+    { name: 'MELEE TUNER // 近接調律ユニット', label: '近接威力 +6%', stat: 'meleeDamage', value: 0.06, iconType: 'sword' },
+    { name: 'MELEE SERVO // 近接加速サーボ', label: '近接攻撃速度 +6%', stat: 'meleeSpeed', value: 0.06, iconType: 'speed' },
+    { name: 'MELEE PLATING // 近接補強装甲', label: '最大HP +15', stat: 'maxHp', value: 15, iconType: 'shield' },
+  ],
+  ASSAULT: [
+    { name: 'RANGED TUNER // 射撃調律ユニット', label: '射撃威力 +6%', stat: 'rangedDamage', value: 0.06, iconType: 'zap' },
+    { name: 'RANGED CELL // 射撃補助セル', label: '最大シールド +15', stat: 'maxShield', value: 15, iconType: 'shield' },
+    { name: 'RANGED STRIDE // 射撃補助脚部', label: '移動速度 +4%', stat: 'moveSpeed', value: 0.04, iconType: 'speed' },
+  ],
+  GRENADE: [
+    { name: 'HEAVY TUNER // 重火器調律ユニット', label: '重火器威力 +6%', stat: 'heavyDamage', value: 0.06, iconType: 'heavy' },
+    { name: 'HEAVY CYCLER // 重火器循環器', label: 'リチャージ速度 +8%', stat: 'rechargeSpeed', value: 0.08, iconType: 'speed' },
+    { name: 'HEAVY HULL // 重火器補強外殻', label: '最大HP +15', stat: 'maxHp', value: 15, iconType: 'shield' },
+  ],
+};
+{
+  const isSpecificNode = (n: SkillNode) => n.isWeaponSpecific || n.nodeType === 'WEAPON_SPECIFIC';
+  const byId = new Map(INITIAL_SKILL_NODES.map((n) => [n.id, n]));
+  const depthCache = new Map<string, number>();
+  const depthOf = (id: string): number => {
+    const cached = depthCache.get(id);
+    if (cached !== undefined) return cached;
+    const node = byId.get(id);
+    const d = !node || node.prerequisites.length === 0 ? 0 : 1 + Math.max(...node.prerequisites.map(depthOf));
+    depthCache.set(id, d);
+    return d;
+  };
+  const counters: Record<string, number> = {};
+  const fillers: SkillNode[] = [];
+  for (const child of INITIAL_SKILL_NODES) {
+    if (child.id === 'core_root' || isSpecificNode(child) || child.prerequisites.length === 0) continue;
+    const d = depthOf(child.id);
+    if (d < 3 || d % 2 === 0) continue; // 1段おきに挟む (起点付近は触らない)
+    const parentId = child.prerequisites[0];
+    const parent = byId.get(parentId);
+    if (!parent || parent.id === 'core_root') continue;
+    const variants = FILLER_VARIANTS[child.branch];
+    const v = variants[(counters[child.branch] = (counters[child.branch] ?? -1) + 1) % variants.length];
+    fillers.push({
+      id: `fill_${child.id}`,
+      name: v.name,
+      branch: child.branch,
+      nodeType: 'PASSIVE_STAT',
+      description: `【${child.branch}】補助ステータス強化。${v.label}。`,
+      cost: 120 + parent.tier * 50,
+      unlocked: false,
+      tier: parent.tier + 1,
+      x: (parent.x + child.x) / 2,
+      y: (parent.y + child.y) / 2,
+      prerequisites: [parentId],
+      effects: [{ stat: v.stat, value: v.value, label: v.label }],
+      isWeaponSpecific: false,
+      iconType: v.iconType,
+    });
+    child.prerequisites = [`fill_${child.id}`, ...child.prerequisites.slice(1)];
+  }
+  INITIAL_SKILL_NODES.push(...fillers);
+}
+
 export const INITIAL_PLAYER_STATS: PlayerStats = {
   hp: 100,
   maxHp: 100,
