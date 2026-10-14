@@ -29,6 +29,7 @@ export function getSightProfile(w: Weapon): SightProfile {
     case 'heavy_railgun': return p('rail', true, 26, '#38bdf8', 'LONGINUS // 6.0X KINETIC RANGEFINDER', 'RAIL CAPACITORS NOMINAL');
     // ── sidearms ──
     case 'sub_pulsar': return p('holo', false, 60, '#38bdf8', 'ARCHON 9 // HOLO RING', 'STANDARD ISSUE // ENERGY CELL');
+    case 'sub_vitalis': return p('holo', false, 60, '#f472b6', 'VITALIS // MEDIC HOLO RING', 'HEAL DRONE ×1 // ALLY LINK');
     case 'sub_magnum': return p('magnum', false, 56, '#fbbf24', 'APOCRYPHA .50 // HEAVY NOTCH', 'PIERCE ×1 // .50 CORE ROUND');
     case 'sub_twin_revolver': return p('twin', false, 58, '#38bdf8', 'TWIN PULSE // DUAL CONVERGENCE', 'PULSE OVERLOAD // EVERY 8TH');
     case 'sub_akimbo': return p('viper', false, 60, '#4ade80', 'TWIN VIPER // FANG SIGHT', 'L/R ALTERNATE FIRE');

@@ -46,6 +46,10 @@ import { getNodeLevel, scaledEffectValue } from '../data/nodeLevels';
 import { WORLD_MAPS } from '../data/initialData';
 import { NetSession } from '../utils/netplay';
 import { CoopBattle, CoopEnemy, ReviveInfo } from '../utils/coopBattle';
+import {
+  HealDrone, HEAL_DRONE_RANGE, HEAL_DRONE_RANGE_HOLD, HEAL_DRONE_HPS, HEAL_DRONE_PCT,
+  HEAL_DRONE_RANGE_WIDE, HEAL_DRONE_RANGE_HOLD_WIDE, HEAL_DRONE_MAX_BEAMS,
+} from '../utils/healDrone';
 
 interface BattleScene3DProps {
   mission: Mission;
@@ -62,6 +66,10 @@ interface BattleScene3DProps {
 
 /** ステージ開始カットインの長さ (秒)。終了と同時に WAVE 1 が出現する */
 const STAGE_INTRO_SECONDS = 3.2;
+// 無被弾回復: 被弾(HP/シールドの減少)から DELAY 秒経つと HP がゆっくり回復する。
+// シールド自動回復(毎秒5)より低く抑える
+const HP_REGEN_DELAY_SECONDS = 5;
+const HP_REGEN_PER_SECOND = 2;
 
 type EnemyCategory = 'hound' | 'drone' | 'golem' | 'boss' | 'sentry' | 'stalker' | 'titan' | 'mender' | 'wyrm' | 'jester' | 'carrier' | 'lancer'
   | 'aegis' | 'ronin' | 'pyro' | 'weaver' | 'pylon' | 'spotter' | 'splitter' | 'chrono' | 'mirage' | 'mirage_echo' | 'magnet' | 'berserker';
@@ -2658,6 +2666,9 @@ export const BattleScene3D: React.FC<BattleScene3DProps> = ({
   const maxHpRef = useRef(100);
   const maxShieldRef = useRef(80);
   const lastShieldHudSyncRef = useRef(0);
+  // 無被弾回復の計測: 最後に被弾してからの経過秒数 / 前フレーム末の HP+シールド合計
+  const sinceLastHitRef = useRef(0);
+  const hpShieldPrevRef = useRef(0);
 
   // Calculate passives
   useEffect(() => {
@@ -7008,6 +7019,18 @@ export const BattleScene3D: React.FC<BattleScene3DProps> = ({
     };
     arsenalCtxRef.current = arsenalCtx;
 
+    // VITALIS: 構えている間だけ出る回復ドローン (自分の分。味方のドローンは CoopBattle が描く)
+    let healDrone: HealDrone | null = null;
+    let healDroneInfo: { x: number; y: number; z: number; target: string[] } | null = null;
+    let healTargetIds: string[] = [];
+    let healSendAcc = 0;
+    const healSendAmt = new Map<string, number>();
+    const healTargetPos = [new THREE.Vector3(), new THREE.Vector3()];
+    // 強化ノード (VITALIS 専用): 回復割合化 / 回復範囲拡大
+    const vitalisPercent = skillNodes.some((n) => n.id === 'vitalis_mod_percent' && n.unlocked);
+    const vitalisWide = skillNodes.some((n) => n.id === 'vitalis_mod_reach' && n.unlocked);
+    let lastHealFxAt = 0;
+    const healAnchor = new THREE.Vector3();
     const remoteHurt = (id: string): HurtFn => (dmg, label, color, opts = {}) => {
       coop?.sendHit(id, dmg, label, color, opts as Record<string, unknown>);
     };
@@ -7023,6 +7046,7 @@ export const BattleScene3D: React.FC<BattleScene3DProps> = ({
           maxHp: maxHpRef.current,
           ko: koRef.current,
           color: '#22d3ee',
+          drone: healDroneInfo,
         }),
         spawnPuppet: (typeId, name, x, z) =>
           {
@@ -7051,6 +7075,19 @@ export const BattleScene3D: React.FC<BattleScene3DProps> = ({
           syncHudState();
         },
         hurtLocal: (dmg, label, color, opts) => hurtPlayer(dmg, label, color, opts as Parameters<HurtFn>[3]),
+        healLocal: (amount) => {
+          if (battleFinished || koRef.current || !(amount > 0) || playerHpRef.current >= maxHpRef.current) return;
+          playerHpRef.current = Math.min(maxHpRef.current, playerHpRef.current + Math.min(amount, 40));
+          const nowMs = performance.now();
+          if (nowMs - lastHealFxAt > 700) {
+            lastHealFxAt = nowMs;
+            spawnDamageText('+HEAL', '#f472b6');
+            syncHudState();
+          } else if (nowMs - lastShieldHudSyncRef.current > 66) {
+            lastShieldHudSyncRef.current = nowMs;
+            syncHudState();
+          }
+        },
         onWave: (w) => {
           setCurrentWave(w.wave);
           setTotalWaves(w.total);
@@ -8287,12 +8324,31 @@ export const BattleScene3D: React.FC<BattleScene3DProps> = ({
       // 5. STAT REGENERATION & DYNAMITE RECHARGE
       dashCooldownRef.current = Math.max(0, dashCooldownRef.current - delta);
       staminaRef.current = 100;
-      if (playerShieldRef.current < maxShieldRef.current) {
+      // HP+シールドが前フレームより減っていたら被弾とみなして無被弾時間をリセット
+      const hpShieldBefore = playerHpRef.current + playerShieldRef.current;
+      if (hpShieldBefore < hpShieldPrevRef.current - 0.001) sinceLastHitRef.current = 0;
+      else sinceLastHitRef.current += delta;
+      const shieldRegenerating = playerShieldRef.current < maxShieldRef.current;
+      if (shieldRegenerating) {
         playerShieldRef.current = Math.min(maxShieldRef.current, playerShieldRef.current + delta * 5);
+      }
+      const hpRegenerating =
+        !koRef.current &&
+        playerHpRef.current > 0 &&
+        playerHpRef.current < maxHpRef.current &&
+        sinceLastHitRef.current >= HP_REGEN_DELAY_SECONDS;
+      if (hpRegenerating) {
+        playerHpRef.current = Math.min(maxHpRef.current, playerHpRef.current + delta * HP_REGEN_PER_SECOND);
+      }
+      hpShieldPrevRef.current = playerHpRef.current + playerShieldRef.current;
+      if (shieldRegenerating || hpRegenerating) {
         // HUDはイベント時しか更新されないため、回復中は約15Hzで継続的に反映する
-        const shieldNow = performance.now();
-        if (shieldNow - lastShieldHudSyncRef.current > 66 || playerShieldRef.current >= maxShieldRef.current) {
-          lastShieldHudSyncRef.current = shieldNow;
+        const regenNow = performance.now();
+        const regenFinished =
+          (shieldRegenerating && playerShieldRef.current >= maxShieldRef.current) ||
+          (hpRegenerating && playerHpRef.current >= maxHpRef.current);
+        if (regenNow - lastShieldHudSyncRef.current > 66 || regenFinished) {
+          lastShieldHudSyncRef.current = regenNow;
           syncHudState();
         }
       }
@@ -9539,6 +9595,72 @@ export const BattleScene3D: React.FC<BattleScene3DProps> = ({
         if (playerHpRef.current <= 0 && !koRef.current) onLocalHpZero();
         if (coop.isHost && !battleFinished && coop.allDown(koRef.current)) handleBattleEnd(false);
       }
+      // 8.8 VITALIS HEAL DRONE
+      {
+        const hw = getActiveWeapon();
+        const holding = hw.id === 'sub_vitalis' && !koRef.current && !battleFinished;
+        if (holding) {
+          if (!healDrone) healDrone = new HealDrone(scene);
+          const eye = playerPos.current;
+          HealDrone.hoverPoint(eye, currentRotation.current.yaw, healAnchor);
+          // 回復対象: 範囲内でHPが減っている味方を、HPの割合が低い順に最大 beams 人 (回復中の人は少し遠くても維持)
+          const beams = vitalisWide ? HEAL_DRONE_MAX_BEAMS : 1;
+          const rng = vitalisWide ? HEAL_DRONE_RANGE_WIDE : HEAL_DRONE_RANGE;
+          const rngHold = vitalisWide ? HEAL_DRONE_RANGE_HOLD_WIDE : HEAL_DRONE_RANGE_HOLD;
+          type Ally = NonNullable<typeof coop>['remoteList'][number];
+          const picked: Ally[] = [];
+          if (coop) {
+            const cands: { r: Ally; score: number }[] = [];
+            for (const r of coop.remoteList) {
+              if (r.ko || !r.seen || r.hp >= r.maxHp) continue;
+              const had = healTargetIds.includes(r.id);
+              if (Math.hypot(r.eye.x - eye.x, r.eye.y - eye.y, r.eye.z - eye.z) > (had ? rngHold : rng)) continue;
+              cands.push({ r, score: r.hp / Math.max(1, r.maxHp) - (had ? 0.08 : 0) });
+            }
+            cands.sort((a, b) => a.score - b.score);
+            for (const c of cands.slice(0, beams)) picked.push(c.r);
+          }
+          const ids: string[] = picked.map((r) => r.id);
+          const targets: THREE.Vector3[] = [];
+          picked.forEach((r, i) => {
+            healTargetPos[i].set(r.eye.x, r.eye.y - 0.55, r.eye.z);
+            targets.push(healTargetPos[i]);
+            const amt = vitalisPercent ? HEAL_DRONE_PCT * r.maxHp : HEAL_DRONE_HPS;
+            healSendAmt.set(r.id, (healSendAmt.get(r.id) ?? 0) + amt * delta);
+          });
+          for (const k of [...healSendAmt.keys()]) if (!ids.includes(k)) healSendAmt.delete(k);
+          healSendAcc += delta;
+          if (healSendAcc >= 0.25) {
+            healSendAcc = 0;
+            healSendAmt.forEach((v, id) => coop?.sendHeal(id, v));
+            healSendAmt.clear();
+          }
+          // 枠が空いていて自分のHPが減っていれば、自分も回復する
+          const healSelf = picked.length < beams && playerHpRef.current < maxHpRef.current;
+          if (healSelf) {
+            healTargetPos[picked.length].set(eye.x, eye.y - 0.55, eye.z);
+            targets.push(healTargetPos[picked.length]);
+            ids.push(netSession?.myId ?? 'self');
+            const selfAmt = vitalisPercent ? HEAL_DRONE_PCT * maxHpRef.current : HEAL_DRONE_HPS;
+            playerHpRef.current = Math.min(maxHpRef.current, playerHpRef.current + selfAmt * delta);
+            const nowMs = performance.now();
+            if (nowMs - lastShieldHudSyncRef.current > 66 || playerHpRef.current >= maxHpRef.current) {
+              lastShieldHudSyncRef.current = nowMs;
+              syncHudState();
+            }
+          }
+          healTargetIds = picked.map((r) => r.id);
+          healDrone.update(delta, healAnchor, targets);
+          healDroneInfo = { x: healAnchor.x, y: healAnchor.y, z: healAnchor.z, target: ids };
+        } else if (healDrone) {
+          healDrone.dispose();
+          healDrone = null;
+          healDroneInfo = null;
+          healTargetIds = [];
+          healSendAcc = 0;
+          healSendAmt.clear();
+        }
+      }
       const hazardTargets = coop?.isHost
         ? coop.remoteList.filter((r) => !r.ko && r.seen).map((r) => ({ pos: r.eye, hurt: remoteHurt(r.id) }))
         : undefined;
@@ -10653,6 +10775,8 @@ export const BattleScene3D: React.FC<BattleScene3DProps> = ({
     return () => {
       cancelAnimationFrame(animationId);
       coop?.dispose();
+      healDrone?.dispose();
+      healDrone = null;
       hazards.clear();
       arsenal.clear();
       arsenalRef.current = null;

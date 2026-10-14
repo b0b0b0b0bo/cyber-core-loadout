@@ -60,8 +60,10 @@ export function updateChainsawChain(chain: THREE.Object3D, offset: number): void
 export function populateBattleWeaponModel(holder: THREE.Object3D, weapon: Weapon): void {
   // ───────────────────────── materials ─────────────────────────
   const accent = new THREE.Color(weapon.color);
-  const gunMat = new THREE.MeshStandardMaterial({ color: 0x1e2837, metalness: 0.62, roughness: 0.38 });
-  const frameMat = new THREE.MeshStandardMaterial({ color: 0x36455a, metalness: 0.55, roughness: 0.42 });
+  // VITALIS: ピンク基調のボディ (スライド=濃いピンク / フレーム=淡いピンク)
+  const isVitalis = weapon.id === 'sub_vitalis';
+  const gunMat = new THREE.MeshStandardMaterial({ color: isVitalis ? 0xd6609b : 0x1e2837, metalness: isVitalis ? 0.4 : 0.62, roughness: isVitalis ? 0.32 : 0.38 });
+  const frameMat = new THREE.MeshStandardMaterial({ color: isVitalis ? 0xf9c4de : 0x36455a, metalness: isVitalis ? 0.35 : 0.55, roughness: isVitalis ? 0.3 : 0.42 });
   const steelMat = new THREE.MeshStandardMaterial({ color: 0x9aa8bb, metalness: 0.72, roughness: 0.26 });
   const rubberMat = new THREE.MeshStandardMaterial({ color: 0x0c121b, metalness: 0.05, roughness: 0.88 });
   const trimMat = new THREE.MeshStandardMaterial({

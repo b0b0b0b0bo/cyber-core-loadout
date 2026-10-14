@@ -107,6 +107,27 @@ export function applyWeaponVariant(holder: THREE.Object3D, weapon: Weapon): void
       glowBox(0.021, -0.08, -0.12, 0.004, 0.012, 0.09);
       break;
     }
+    case 'sub_vitalis': {
+      // VITALIS — pink medical pistol: cross emblem, vented slide strip and a drone dock on top
+      const pinkMat = new THREE.MeshStandardMaterial({ color: 0xfbcfe8, metalness: 0.3, roughness: 0.3 });
+      // medical cross on both slide flanks
+      [-1, 1].forEach((s) => {
+        put(holder, M(new THREE.BoxGeometry(0.004, 0.034, 0.01), coreMat), s * 0.0175, 0.045, -0.12);
+        put(holder, M(new THREE.BoxGeometry(0.004, 0.01, 0.034), coreMat), s * 0.0175, 0.045, -0.12);
+      });
+      // slide serrations + top vent
+      for (let i = 0; i < 5; i++) put(holder, M(new THREE.BoxGeometry(0.036, 0.006, 0.008), pinkMat), 0, 0.093, -0.06 - i * 0.022);
+      glowBox(0, 0.088, -0.19, 0.012, 0.004, 0.08);
+      // drone dock (a small ring cradle on top of the slide)
+      put(holder, M(rb(0.05, 0.012, 0.07, 0.004), frameMat), 0, 0.104, -0.05);
+      put(holder, M(ringZ(0.016, 0.003, 18), energyMat), 0, 0.12, -0.05).rotation.x = Math.PI / 2;
+      glowSphere(0, 0.118, -0.05, 0.008);
+      // emitter nozzle
+      put(holder, M(cylZ(0.014, 0.018, 0.06, 14), pinkMat), 0, 0.04, -0.37);
+      put(holder, M(ringZ(0.019, 0.004, 16), energyMat), 0, 0.04, -0.4);
+      glowSphere(0, 0.04, -0.405, 0.009);
+      break;
+    }
     case 'sub_arc_blaster': {
       // VOLT CHAIN — tesla prongs + side capacitors
       const prongs = 3;

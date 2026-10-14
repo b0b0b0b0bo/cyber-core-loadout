@@ -10,6 +10,7 @@ import * as THREE from 'three';
 import { NetSession, HOST_ID } from './netplay';
 import type { NetMsg } from './netplay';
 import type { HazardSpec } from './combatHazards';
+import { HealDrone } from './healDrone';
 
 /** 同期に必要なだけの敵インスタンス (BattleScene3D の EnemyInstance が構造的に満たす) */
 export interface CoopEnemy {
@@ -41,6 +42,8 @@ export interface CoopLocalState {
   maxHp: number;
   ko: boolean;
   color: string;
+  /** VITALIS の回復ドローン (構えていなければ null)。target は回復中のプレイヤーID (最大2人) */
+  drone?: { x: number; y: number; z: number; target: string[] } | null;
 }
 
 export interface CoopWaveInfo {
@@ -78,6 +81,8 @@ export interface CoopCtx {
   /** ゲスト: ホストの敵が倒された (演出・報酬・片付け) */
   removePuppet: (e: CoopEnemy) => void;
   hurtLocal: (dmg: number, label: string, color: string, opts: Record<string, unknown>) => void;
+  /** 味方の回復ドローンから回復された */
+  healLocal: (amount: number) => void;
   onWave: (w: CoopWaveInfo) => void;
   onEnd: (victory: boolean) => void;
   onAnnounce: (text: string) => void;
@@ -115,6 +120,11 @@ interface Remote {
   reviveT: number;
   circle: THREE.Group;
   circleFill: THREE.Mesh;
+  /** 相手が出している回復ドローン */
+  drone: HealDrone | null;
+  droneAnchor: THREE.Vector3;
+  droneHas: boolean;
+  droneTarget: string[];
 }
 
 interface Tracer {
@@ -224,6 +234,11 @@ export class CoopBattle {
     this.net.sendTo(id, { t: 'hit', d: dmg, label, color, opts });
   }
 
+  /** 回復ドローンによる味方への回復 (受け取り側で上限まで回復される) */
+  sendHeal(id: string, amount: number) {
+    this.net.sendTo(id, { t: 'heal', a: round2(amount) });
+  }
+
   sendWave(w: CoopWaveInfo) {
     if (this.isHost) this.net.send({ t: 'wave', ...w });
   }
@@ -284,6 +299,9 @@ export class CoopBattle {
         }
         break;
       }
+      case 'heal':
+        this.ctx.healLocal(Number(msg.a) || 0);
+        break;
       case 'wave':
         if (!this.isHost) this.ctx.onWave(msg as unknown as CoopWaveInfo);
         break;
@@ -326,6 +344,10 @@ export class CoopBattle {
     r.hp = Number(m.hp) || 0;
     r.maxHp = Number(m.mhp) || 100;
     r.ko = Boolean(m.ko);
+    const dr = m.dr as number[] | undefined;
+    r.droneHas = Array.isArray(dr) && dr.length === 3 && dr.every((v) => Number.isFinite(v));
+    if (r.droneHas && dr) r.droneAnchor.set(dr[0], dr[1], dr[2]);
+    r.droneTarget = typeof m.dt === 'string' && m.dt ? m.dt.split(',') : [];
   }
 
   /** ホスト: ゲストの与えたダメージを敵に適用 */
@@ -421,6 +443,22 @@ export class CoopBattle {
         if (c !== r.label && c !== r.body) c.visible = !r.ko;
       });
       this.drawLabel(r);
+      // 相手の回復ドローン
+      if (r.droneHas && !r.ko && r.seen) {
+        if (!r.drone) r.drone = new HealDrone(this.ctx.scene);
+        const tps: THREE.Vector3[] = [];
+        for (const tid of r.droneTarget) {
+          if (tid === this.net.myId) tps.push(new THREE.Vector3(local.pos.x, local.pos.y - 0.55, local.pos.z));
+          else {
+            const o = this.remotes.get(tid);
+            if (o && o.seen) tps.push(new THREE.Vector3(o.eye.x, o.eye.y - 0.55, o.eye.z));
+          }
+        }
+        r.drone.update(delta, r.droneAnchor, tps);
+      } else if (r.drone) {
+        r.drone.dispose();
+        r.drone = null;
+      }
     });
 
     // ダウン → 円内に味方が REVIVE_TIME 秒いると復帰
@@ -502,6 +540,7 @@ export class CoopBattle {
           x: round2(local.pos.x), y: round2(local.pos.y), z: round2(local.pos.z),
           yaw: round2(local.yaw), pitch: round2(local.pitch),
           hp: Math.round(local.hp), mhp: Math.round(local.maxHp), ko: local.ko,
+          ...(local.drone ? { dr: [round2(local.drone.x), round2(local.drone.y), round2(local.drone.z)], dt: local.drone.target.join(',') } : {}),
         },
         false,
       );
@@ -630,6 +669,7 @@ export class CoopBattle {
       yaw: 0, targetYaw: 0, pitch: 0, hp: 100, maxHp: 100, ko: false, seen: false,
       group, gun, body, label, labelCtx, labelTex, labelKey: '',
       wasKo: false, reviveT: 0, circle: circ.group, circleFill: circ.fill,
+      drone: null, droneAnchor: new THREE.Vector3(), droneHas: false, droneTarget: [],
     };
   }
 
@@ -676,6 +716,8 @@ export class CoopBattle {
   }
 
   private disposeRemote(r: Remote) {
+    r.drone?.dispose();
+    r.drone = null;
     this.ctx.scene.remove(r.group);
     this.disposeCircle(r.circle);
     r.group.traverse((o) => {
