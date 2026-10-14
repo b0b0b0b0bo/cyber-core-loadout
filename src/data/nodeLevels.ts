@@ -1,0 +1,70 @@
+import { SkillNode } from '../types';
+
+/** 解放したパッシブ / 特有強化ノードをさらに強化できる最大レベル。解放直後が Lv1。 */
+export const MAX_NODE_LEVEL = 10;
+
+/** 1レベルごとに基本効果へ加算される割合 (Lv10 で約2.1倍) */
+const EFFECT_PER_LEVEL = 0.12;
+
+/** 武器解放ノードは武器側のダメージ強化があるので、ノード強化の対象外。
+ *  武器特有強化ノードは一度解放するだけで、レベルアップ不可 */
+export const isNodeUpgradable = (node: SkillNode): boolean =>
+  node.nodeType !== 'WEAPON_UNLOCK' &&
+  node.nodeType !== 'WEAPON_SPECIFIC' &&
+  !node.isWeaponSpecific &&
+  node.effects.length > 0;
+
+/** 中枢コアは Lv100 まで強化できる */
+export const CORE_MAX_LEVEL = 100;
+/** コアの 1 レベルごとの効果加算割合 (Lv100 で約 5 倍) */
+const CORE_EFFECT_PER_LEVEL = 0.04;
+
+export const maxNodeLevel = (node: SkillNode): number => (node.id === 'core_root' ? CORE_MAX_LEVEL : MAX_NODE_LEVEL);
+
+export const getNodeLevel = (node: SkillNode, levels: Record<string, number>): number =>
+  node.unlocked ? (!isNodeUpgradable(node) ? 1 : Math.max(1, Math.min(maxNodeLevel(node), levels[node.id] || 1))) : 0;
+
+/** レベルに応じた効果倍率 (未解放は 0) */
+export const nodeEffectScale = (level: number, node?: SkillNode): number =>
+  level <= 0 ? 0 : 1 + (level - 1) * (node?.id === 'core_root' ? CORE_EFFECT_PER_LEVEL : EFFECT_PER_LEVEL);
+
+/** level -> level+1 に必要な SCRAP */
+export const nodeUpgradeCost = (node: SkillNode, level: number): number =>
+  node.id === 'core_root' ? 100 + 20 * level : Math.max(40, Math.round(node.cost * 0.3 * level));
+
+/** level -> level+1 に必要な BEACON (中枢コアの強化のみ必要) */
+export const nodeUpgradeBeaconCost = (node: SkillNode, level: number): number =>
+  node.id === 'core_root' ? 1 + Math.floor(level / 10) : 0;
+
+export const nodeUpgradeBulkCost = (
+  node: SkillNode,
+  level: number,
+  count: number,
+): { count: number; cost: number; beacons: number } => {
+  const n = Math.max(0, Math.min(count, maxNodeLevel(node) - level));
+  let cost = 0;
+  let beacons = 0;
+  for (let i = 0; i < n; i++) {
+    cost += nodeUpgradeCost(node, level + i);
+    beacons += nodeUpgradeBeaconCost(node, level + i);
+  }
+  return { count: n, cost, beacons };
+};
+
+const truncToward0 = (v: number) => Math.trunc(Math.abs(v) + 1e-9) * Math.sign(v);
+
+/** 効果値の小数切り捨て (1 未満は割合なので 1% 単位、それ以上は整数単位)。内部計算・表示で共通 */
+export const truncEffectValue = (value: number): number =>
+  Math.abs(value) < 1 ? truncToward0(value * 100) / 100 : truncToward0(value);
+
+/** レベル倍率を掛けた後の実効値 (小数切り捨て済み) */
+export const scaledEffectValue = (value: number, level: number, node?: SkillNode): number =>
+  truncEffectValue(value * nodeEffectScale(level, node));
+
+/** 効果値を表示用に整形 (小数は%表記。値は truncEffectValue 済みのものを渡す) */
+export const formatEffectValue = (value: number): string => {
+  const v = truncEffectValue(value);
+  const sign = v > 0 ? '+' : '';
+  if (Math.abs(v) < 1 && v !== 0) return `${sign}${Math.round(v * 100)}%`;
+  return `${sign}${v}`;
+};

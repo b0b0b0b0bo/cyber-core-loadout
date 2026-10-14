@@ -1,0 +1,16 @@
+Cyber Core - Mac / Google Chrome での起動方法
+
+1. ZIPを展開します。
+2. フォルダ内の「起動.command」をダブルクリックします。
+3. 初回は依存パッケージのインストールが行われます。インターネット接続が必要です。
+4. Google Chrome でゲームが開きます。
+5. 終了するときは、起動したターミナルで Control + C を押します。
+
+必要なもの：
+- Google Chrome
+- Node.js の LTS 版（npmを含む）
+  https://nodejs.org/
+
+注意：このプロジェクトはReact/Vite製です。index.htmlをFinderから直接開くだけでは動作しません。
+「起動.command」がローカルサーバーを起動し、Google Chromeで開きます。
+macOSが初回起動をブロックする場合は、ファイルをControlクリックして「開く」を選んでください。

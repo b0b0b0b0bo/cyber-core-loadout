@@ -1,0 +1,6 @@
+{
+  "name": "CYBER CORE - Gothic Cyberpunk 3D FPS",
+  "description": "サイバーパンク・ゴシックSFの世界観を持つ3D FPSゲーム。3Dホログラムマップ、4スロット武器編成、近接ガード＆Sweep Attack、ガジェットツリー強化システムを搭載。",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
