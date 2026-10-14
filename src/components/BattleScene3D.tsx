@@ -64,6 +64,8 @@ interface BattleScene3DProps {
   /** ハードモード (3MAP先の敵の強さ) */
   hard?: boolean;
   onFinishBattle: (result: BattleResult) => void;
+  /** 開発者モード: G キーでステージを即クリア */
+  devMode?: boolean;
   onExitToMenu: () => void;
 }
 
@@ -2390,6 +2392,7 @@ export const BattleScene3D: React.FC<BattleScene3DProps> = ({
   net = null,
   hard = false,
   onFinishBattle,
+  devMode,
   onExitToMenu,
 }) => {
   const mountRef = useRef<HTMLDivElement>(null);
@@ -7002,6 +7005,14 @@ export const BattleScene3D: React.FC<BattleScene3DProps> = ({
       }, 700);
     };
 
+    // DEV: G キーで即クリア (VITE_DEV_MODE のときのみ)
+    const handleDevClear = (e: KeyboardEvent) => {
+      if (e.key !== 'g' && e.key !== 'G') return;
+      if (e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
+      handleBattleEnd(true);
+    };
+    if (devMode) window.addEventListener('keydown', handleDevClear);
+
     // ── Telegraphed hazards / beams + the combat context shared by elite and boss AI ──
     const hazards = new CombatHazards(scene);
     hazards.onShake = (amp, dur) => {
@@ -11040,6 +11051,7 @@ export const BattleScene3D: React.FC<BattleScene3DProps> = ({
       window.removeEventListener('mouseup', handleMouseUp);
       renderer.domElement.removeEventListener('contextmenu', handleContextMenu);
       window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keydown', handleDevClear);
       window.removeEventListener('keyup', handleKeyUp);
       window.removeEventListener('wheel', handleWheel);
       if (document.pointerLockElement === renderer.domElement) {

@@ -198,12 +198,13 @@ export default function App() {
     }
   };
 
-  // DEBUG: GADGET画面で G キー → 全武器を解放（武器解放ノードも解放済みにして専用強化ノードを出現させる）
+  // DEBUG: GADGET画面で G キー → SCRAP/BEACON を大量付与 + 全武器を解放（武器解放ノードも解放済みにして専用強化ノードを出現させる）
   const handleUnlockAllWeapons = () => {
     setWeapons((prev) => prev.map((w) => (w.unlocked ? w : { ...w, unlocked: true })));
     setSkillNodes((prev) =>
       prev.map((n) => (n.nodeType === 'WEAPON_UNLOCK' && !n.unlocked ? { ...n, unlocked: true } : n))
     );
+    setPlayerStats((prev) => ({ ...prev, scrap: prev.scrap + 100000, beacons: (prev.beacons || 0) + 1000 }));
     sound.playUiClick();
   };
 
@@ -537,6 +538,7 @@ export default function App() {
                 net={net}
                 hard={effectiveHard(selectedMission) || (!!net && !net.isHost && hardMode)}
                 onFinishBattle={handleFinishBattle}
+                devMode={DEV_MODE}
                 onExitToMenu={() => setCurrentScreen('MISSION_SELECT')}
               />
             </motion.div>
