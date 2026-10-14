@@ -30,6 +30,7 @@ import {
 import { buildMeleeSwingFx, buildMeleeHitFx, buildHammerChargeFx, buildHammerSlamFx, buildMeleeChargeFx, buildSlashWaveFx, setFxLightProvider } from '../utils/meleeFx';
 import { WeaponTrail, findTrailAnchors } from '../utils/weaponTrail';
 import { Arsenal, ArsenalCtx, ARSENAL_GUNS, MAX_TURRETS } from '../utils/arsenal';
+import { buildExplosionFx } from '../utils/explosionFx';
 import { populateBattleWeaponModel, AKIMBO_HAND_X, updateChainsawChain } from '../utils/battleWeaponModel';
 import { bossKindOf, buildBossModel, animateBoss, BossKind } from '../utils/bossModels';
 import { createRig, animateEnemy, animateBossMotion, EnemyRig } from '../utils/enemyAnimation';
@@ -132,6 +133,10 @@ interface EnemyInstance {
 
   // Status Ailments
   frozenTimer?: number;
+  /** PALCER: 行動不能の残り秒数 */
+  stunTimer?: number;
+  /** ゲスト: ホストへ報告待ちのスタン秒数 */
+  stunReq?: number;
   chillSlowTimer?: number;
   chillHits?: number;
   shockTimer?: number;
@@ -296,7 +301,17 @@ interface DynamiteProjectile {
   velocity: THREE.Vector3;
   lifetime: number;
   damage: number;
+  /** blast = ダイナマイトの爆風 / stun = PALCER の閃光 (少量ダメージ + 行動不能) */
+  kind: 'blast' | 'stun';
 }
+
+/** 投擲物ごとの初速 (視線方向への速さ / 上向きの初速) と爆発半径。予測線と実際の軌道で共用する */
+const THROW_PROFILE = {
+  blast: { speed: 22, up: 7.0, radius: 6.5 },
+  stun: { speed: 42, up: 9.0, radius: 7.5 },
+} as const;
+const PALCER_STUN_SEC = 3;
+const throwKindOf = (weaponId: string): 'blast' | 'stun' => (weaponId === 'grenade_palcer' ? 'stun' : 'blast');
 
 interface FloatingText {
   id: number;
@@ -2438,6 +2453,7 @@ export const BattleScene3D: React.FC<BattleScene3DProps> = ({
     rechargePct: 0,
     isRechargeable: false,
     throwInfo: null as { label: string; cur: number; max: number } | null,
+    slotStock: {} as Record<number, { cur: number; max: number }>,
     boss: null as { name: string; hp: number; maxHp: number; phase: number } | null,
   });
 
@@ -2791,6 +2807,14 @@ export const BattleScene3D: React.FC<BattleScene3DProps> = ({
       rechargePct,
       isRechargeable: !!(w.isRechargeable || w.modelType === 'dynamite'),
       throwInfo: throwInfoOf(w.id),
+      // 投擲物の所持数は、手に持っていないスロットの分も右下のスロット表示に出す
+      slotStock: (([1, 2, 3, 4] as WeaponSlot[]) as number[]).reduce<Record<number, { cur: number; max: number }>>((acc, sl) => {
+        if (!activeLoadout[sl as WeaponSlot]) return acc;
+        const sw = getWeaponInSlot(sl as WeaponSlot);
+        if (sw.modelType !== 'dynamite') return acc;
+        acc[sl] = { cur: ammoStockRef.current[sl as WeaponSlot] ?? sw.stats.maxAmmo, max: sw.stats.maxAmmo };
+        return acc;
+      }, {}),
     });
   }, [getActiveWeapon]);
 
@@ -5724,7 +5748,7 @@ export const BattleScene3D: React.FC<BattleScene3DProps> = ({
       const curAmmo = ammoStockRef.current[curSlot] ?? activeW.stats.maxAmmo;
       if (curAmmo <= 0) {
         sound.playDefeat();
-        setAnnouncement(activeW.id === 'heavy_sentry' ? 'RECHARGING VOLT SENTRY...' : 'RECHARGING DYNAMITE...');
+        setAnnouncement(activeW.id === 'heavy_sentry' ? 'RECHARGING VOLT SENTRY...' : activeW.id === 'grenade_palcer' ? 'RECHARGING PALCER...' : 'RECHARGING DYNAMITE...');
         return;
       }
 
@@ -5735,7 +5759,8 @@ export const BattleScene3D: React.FC<BattleScene3DProps> = ({
       syncHudState();
       sound.playHeavyLaunch();
       const isSentryThrow = activeW.id === 'heavy_sentry';
-      setAnnouncement(isSentryThrow ? 'VOLT SENTRY THROWN!' : 'DYNAMITE THROWN!');
+      const throwKind = throwKindOf(activeW.id);
+      setAnnouncement(isSentryThrow ? 'VOLT SENTRY THROWN!' : throwKind === 'stun' ? 'PALCER THROWN!' : 'DYNAMITE THROWN!');
 
       // Trigger smooth procedural dynamite throw windup & toss animation
       viewmodelAnimRef.current.throwActive = true;
@@ -5761,24 +5786,38 @@ export const BattleScene3D: React.FC<BattleScene3DProps> = ({
         cameraRef.current.getWorldDirection(dir);
 
         const dynGroup = new THREE.Group();
-        const stickGeo = new THREE.CylinderGeometry(0.06, 0.06, 0.45, 8);
-        const stickMat = new THREE.MeshStandardMaterial({ color: 0xdc2626 });
-        const m1 = new THREE.Mesh(stickGeo, stickMat);
-        m1.position.set(-0.05, 0, 0);
-        dynGroup.add(m1);
-        const m2 = new THREE.Mesh(stickGeo, stickMat);
-        m2.position.set(0.05, 0, 0);
-        dynGroup.add(m2);
+        if (throwKind === 'stun') {
+          // PALCER: 銀の円筒 + シアンの発光リング
+          const body = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.26, 12), new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.8, roughness: 0.3 }));
+          dynGroup.add(body);
+          const band = new THREE.Mesh(new THREE.CylinderGeometry(0.074, 0.074, 0.05, 12), new THREE.MeshBasicMaterial({ color: 0x67e8f9 }));
+          band.position.y = 0.04;
+          dynGroup.add(band);
+          const cap = new THREE.Mesh(new THREE.SphereGeometry(0.045, 8, 6), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+          cap.position.y = 0.15;
+          dynGroup.add(cap);
+        } else {
+          const stickGeo = new THREE.CylinderGeometry(0.06, 0.06, 0.45, 8);
+          const stickMat = new THREE.MeshStandardMaterial({ color: 0xdc2626 });
+          const m1 = new THREE.Mesh(stickGeo, stickMat);
+          m1.position.set(-0.05, 0, 0);
+          dynGroup.add(m1);
+          const m2 = new THREE.Mesh(stickGeo, stickMat);
+          m2.position.set(0.05, 0, 0);
+          dynGroup.add(m2);
+        }
 
         dynGroup.position.copy(origin).addScaledVector(dir, 0.6);
         sceneRef.current.add(dynGroup);
 
-        const initialVel = dir.clone().multiplyScalar(22).add(new THREE.Vector3(0, 7.0, 0));
+        const prof = THROW_PROFILE[throwKind];
+        const initialVel = dir.clone().multiplyScalar(prof.speed).add(new THREE.Vector3(0, prof.up, 0));
         dynamiteProjectilesRef.current.push({
           mesh: dynGroup,
           velocity: initialVel,
           lifetime: 3.5,
           damage: Math.round(activeW.stats.damage * getWeaponDamageMultiplier(activeW.id)),
+          kind: throwKind,
         });
       }
       return;
@@ -8392,8 +8431,8 @@ export const BattleScene3D: React.FC<BattleScene3DProps> = ({
             rechargeTimersRef.current[rs] = 0;
             ammoStockRef.current[rs] = curA + 1;
             sound.playScan();
-            setAnnouncement(rw.id === 'heavy_sentry' ? 'VOLT SENTRY RECHARGED [+1]' : 'DYNAMITE RECHARGED [+1]');
-            if (rs !== curSlot) syncHudState();
+            setAnnouncement(rw.id === 'heavy_sentry' ? 'VOLT SENTRY RECHARGED [+1]' : rw.id === 'grenade_palcer' ? 'PALCER RECHARGED [+1]' : 'DYNAMITE RECHARGED [+1]');
+            syncHudState();
           } else {
             rechargeTimersRef.current[rs] = t;
           }
@@ -8438,8 +8477,9 @@ export const BattleScene3D: React.FC<BattleScene3DProps> = ({
           }
           camera.getWorldDirection(_forward);
           const gp = _tempClosest.copy(camera.position).addScaledVector(_forward, 0.6);
-          const gv = _tempToCenter.copy(_forward).multiplyScalar(22);
-          gv.y += 7.0;
+          const aimProf = THROW_PROFILE[throwKindOf(aimW.id)];
+          const gv = _tempToCenter.copy(_forward).multiplyScalar(aimProf.speed);
+          gv.y += aimProf.up;
           const attr = grenadeAimLine.geometry.getAttribute('position') as THREE.BufferAttribute;
           let n = 0;
           attr.setXYZ(n++, gp.x, gp.y, gp.z);
@@ -8462,7 +8502,8 @@ export const BattleScene3D: React.FC<BattleScene3DProps> = ({
           grenadeAimLine.geometry.setDrawRange(0, n);
           grenadeAimLine.visible = true;
           grenadeAimRing!.position.set(gp.x, 0.12, gp.z);
-          grenadeAimRing!.visible = aimW.id !== 'heavy_sentry'; // 爆風半径リングはダイナマイト用
+          grenadeAimRing!.scale.setScalar(aimProf.radius / THROW_PROFILE.blast.radius);
+          grenadeAimRing!.visible = aimW.id !== 'heavy_sentry'; // 爆風半径リングはダイナマイト/PALCER用
         } else if (grenadeAimLine) {
           grenadeAimLine.visible = false;
           grenadeAimRing!.visible = false;
@@ -9374,17 +9415,20 @@ export const BattleScene3D: React.FC<BattleScene3DProps> = ({
         if (exploded) {
           sound.playEnemyExplode();
           const impactPos = proj.mesh.position.clone();
+          const isStun = proj.kind === 'stun';
+          const aoeRadius = THROW_PROFILE[proj.kind].radius;
 
-          // Subtle shockwave ring
-          const ringGeo = new THREE.RingGeometry(0.5, 4.0, 16);
-          const ringMat = new THREE.MeshBasicMaterial({ color: 0xf59e0b, side: THREE.DoubleSide });
-          const shockRing = new THREE.Mesh(ringGeo, ringMat);
-          shockRing.rotation.x = Math.PI / 2;
-          shockRing.position.set(impactPos.x, 0.1, impactPos.z);
-          scene.add(shockRing);
-          setTimeout(() => scene.remove(shockRing), 200);
+          // 爆発パーティクル (火球・衝撃波・煙・破片 / PALCER は閃光とスパーク)
+          const fx = buildExplosionFx(proj.kind, scene, impactPos, aoeRadius, acquireFxLight);
+          spatialEffectsRef.current.push({
+            mesh: fx.group,
+            light: fx.light,
+            particles: fx.particles,
+            lifetime: fx.lifetime,
+            maxLifetime: fx.lifetime,
+            onUpdate: fx.onUpdate,
+          });
 
-          const aoeRadius = 6.5;
           let enemiesHit = 0;
           enemiesRef.current.forEach((en) => {
             if (en.isDead) return;
@@ -9392,6 +9436,22 @@ export const BattleScene3D: React.FC<BattleScene3DProps> = ({
             const dist = impactPos.distanceTo(_enemyCenter);
             if (dist <= aoeRadius) {
               enemiesHit++;
+              if (isStun) {
+                // PALCER: 少量のダメージ + 3秒間の行動不能 (ボス/タイタンは半減)
+                const dmg = Math.round(proj.damage * (1 - dist / (aoeRadius * 2)));
+                en.hp -= dmg;
+                battleStats.current.damageDealt += dmg;
+                const big = en.category === 'boss' || en.category === 'titan';
+                const stunSec = big ? PALCER_STUN_SEC * 0.5 : PALCER_STUN_SEC;
+                // 協力プレイのゲスト: 敵の人形は動かさないので、ホストへスタンを報告する
+                if (en.isPuppet) en.stunReq = Math.max(en.stunReq ?? 0, stunSec);
+                else en.stunTimer = Math.max(en.stunTimer ?? 0, stunSec);
+                en.velocity.set(0, 0, 0);
+                en.attackCooldown = Math.max(en.attackCooldown, 0.6);
+                spawnDamageText(`STUN! -${dmg}`, '#67e8f9');
+                spawn3DHitSparks(en.mesh.position.clone().add(new THREE.Vector3(0, 1.2, 0)), '#e0f2fe', 14);
+                return;
+              }
               const dmg = Math.round(proj.damage * (1 - dist / (aoeRadius * 1.35)));
               en.hp -= dmg;
               battleStats.current.damageDealt += dmg;
@@ -9403,7 +9463,7 @@ export const BattleScene3D: React.FC<BattleScene3DProps> = ({
           });
 
           if (enemiesHit > 0) {
-            setAnnouncement(`DYNAMITE BLAST // ${enemiesHit} HITS`);
+            setAnnouncement(isStun ? `PALCER STUN // ${enemiesHit} TARGETS` : `DYNAMITE BLAST // ${enemiesHit} HITS`);
             setHitMarkerActive(true);
             setTimeout(() => setHitMarkerActive(false), 100);
           }
@@ -9898,6 +9958,13 @@ export const BattleScene3D: React.FC<BattleScene3DProps> = ({
         if (enemy.isPuppet) {
           enemy.velocity.set(0, 0, 0);
           coop?.stepPuppet(enemy as unknown as CoopEnemy, delta);
+          // PALCER: ホストの敵がスタン中なら、人形にもスパークを出す (残り秒数はスナップショットで更新される)
+          if ((enemy.stunTimer ?? 0) > 0) {
+            enemy.stunTimer = (enemy.stunTimer ?? 0) - delta;
+            if (Math.random() < delta * 2.5) {
+              spawn3DHitSparks(enemy.mesh.position.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.8, 1.6 + Math.random() * 0.5, (Math.random() - 0.5) * 0.8)), '#bae6fd', 3);
+            }
+          }
           if (enemy.groundRingMesh) enemy.groundRingMesh.position.set(enemy.mesh.position.x, 0.04, enemy.mesh.position.z);
           if (enemy.overheadGroup) enemy.overheadGroup.quaternion.copy(camera.quaternion);
           if (enemy.hpBarMesh) {
@@ -9913,6 +9980,16 @@ export const BattleScene3D: React.FC<BattleScene3DProps> = ({
             if (bossRig) animateBossMotion(puppetAnim, bossRig, clock.getElapsedTime(), delta, phase);
           } else {
             animateEnemy(puppetAnim, clock.getElapsedTime(), delta);
+          }
+          return;
+        }
+
+        // PALCER stun: 完全に行動不能 (凍結と違い被ダメージ増加なし)
+        if ((enemy.stunTimer ?? 0) > 0) {
+          enemy.stunTimer = (enemy.stunTimer ?? 0) - delta;
+          enemy.velocity.set(0, 0, 0);
+          if (Math.random() < delta * 2.5) {
+            spawn3DHitSparks(enemy.mesh.position.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.8, 1.6 + Math.random() * 0.5, (Math.random() - 0.5) * 0.8)), '#bae6fd', 3);
           }
           return;
         }
@@ -11104,6 +11181,7 @@ export const BattleScene3D: React.FC<BattleScene3DProps> = ({
         <HudSlots
           slots={([1, 2, 3, 4] as WeaponSlot[]).map((slot) => ({ slot, weapon: weapons.find((item) => item.id === activeLoadout[slot]) }))}
           current={hudStats.currentSlot}
+          stock={hudStats.slotStock}
           onSelect={(slot) => {
             if (activeLoadout[slot]) switchWeapon(slot);
             else {

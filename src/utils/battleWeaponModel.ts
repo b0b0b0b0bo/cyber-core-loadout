@@ -1142,6 +1142,24 @@ export function populateBattleWeaponModel(holder: THREE.Object3D, weapon: Weapon
     sentry.scale.setScalar(1.25);
     sentry.rotation.x = -0.4;
     holder.add(sentry);
+  } else if (weapon.id === 'grenade_palcer') {
+    // PALCER: スタングレネード (銀の円筒 + 発光バンド + 安全レバーとピン)
+    const g = new THREE.Group();
+    put(g, M(new THREE.CylinderGeometry(0.05, 0.05, 0.2, 16), steelMat), 0, 0, 0);
+    put(g, M(new THREE.CylinderGeometry(0.052, 0.052, 0.03, 16), gunMat), 0, 0.075, 0);
+    put(g, M(new THREE.CylinderGeometry(0.052, 0.052, 0.03, 16), gunMat), 0, -0.075, 0);
+    glowBox(g, 0.1, 0.016, 0.004, 0, 0.0, 0.051);
+    put(g, M(new THREE.CylinderGeometry(0.036, 0.05, 0.05, 16), gunMat), 0, 0.125, 0);
+    // 安全レバー
+    put(g, M(rb(0.014, 0.17, 0.03, 0.004), steelMat), 0.052, 0.02, 0);
+    // ピンのリング
+    const ring = M(new THREE.TorusGeometry(0.022, 0.004, 6, 14), steelMat);
+    ring.rotation.y = Math.PI / 2;
+    put(g, ring, 0.04, 0.15, 0);
+    glowSphere(g, 0.012, 0, 0.152, 0);
+    g.rotation.x = -0.35;
+    g.scale.setScalar(1.25);
+    holder.add(g);
   } else if (weapon.modelType === 'dynamite') {
     const dynGroup = new THREE.Group();
     const paperMat = new THREE.MeshStandardMaterial({ color: 0xb91c1c, metalness: 0.15, roughness: 0.55 });

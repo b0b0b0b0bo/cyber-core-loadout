@@ -59,6 +59,7 @@ export function getSightProfile(w: Weapon): SightProfile {
     case 'main_sonic': return p('wave', false, 56, '#60a5fa', 'ECHO RESONATOR // RESONANCE GUIDE', 'PASSES COVER // CROWD BONUS');
     case 'main_buzzsaw': return p('breacher', false, 58, '#facc15', 'BUZZ RIPPER // BOUNCE VECTOR', 'RICOCHET ×3 // GRIND');
     case 'heavy_meteor': return p('hydra', false, 52, '#ef4444', 'METEOR CALLER // ORBITAL BEACON', 'IMPACT 1.1s // CRATER');
+    case 'grenade_palcer': return p('arc', false, 56, '#67e8f9', 'PALCER // LONG-THROW ARC', 'STUN 3s // ×4');
     case 'heavy_sentry': return p('arc', false, 56, '#818cf8', 'VOLT SENTRY // DEPLOY ARC', 'TURRETS ×3 // 16s');
     case 'heavy_inferno': return p('launcher', false, 60, '#fb923c', 'INFERNO ROAR // NOZZLE GUIDE', 'RANGE 10m // STACKING BURN');
   }

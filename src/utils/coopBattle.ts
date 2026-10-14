@@ -27,6 +27,10 @@ export interface CoopEnemy {
   netId?: number;
   /** ゲスト: ホストが把握しているはずの HP (これより減った分をダメージとして報告する) */
   netHp?: number;
+  /** ゲスト: ホストへ報告待ちのスタン秒数 (PALCER)。ホストが stunTimer に反映する */
+  stunReq?: number;
+  /** ホスト: 行動不能の残り秒数 */
+  stunTimer?: number;
   netPos?: { x: number; y: number; z: number; ry: number };
   /** ホスト: 直近のスナップショット時点の HP / 最後にダメージを与えたプレイヤー */
   netSnapHp?: number;
@@ -355,11 +359,15 @@ export class CoopBattle {
     if (!Array.isArray(list)) return;
     const enemies = this.ctx.enemies();
     for (const entry of list) {
-      const [id, d] = entry;
+      const [id, d, stun] = entry;
       const en = enemies.find((e) => e.netId === id && !e.isDead);
-      if (!en || !(d > 0)) continue;
-      en.hp -= Math.min(d, en.maxHp);
-      en.lastDamager = from;
+      if (!en) continue;
+      if (d > 0) {
+        en.hp -= Math.min(d, en.maxHp);
+        en.lastDamager = from;
+      }
+      // PALCER: ゲストが与えたスタンはホストの敵に反映する (上限10秒で不正な値を弾く)
+      if (stun > 0) en.stunTimer = Math.max(en.stunTimer ?? 0, Math.min(stun, 10));
     }
   }
 
@@ -387,6 +395,8 @@ export class CoopBattle {
       en.hp = Number(a[7]);
       en.netHp = en.hp;
       en.bossPhase = Number(a[9]) || 1;
+      // ホストの敵のスタン残り秒数 (人形のスパーク表示用)
+      en.stunTimer = Number(a[10]) || 0;
     }
     this.byNet.forEach((en, id) => {
       if (!seen.has(id)) {
@@ -576,6 +586,7 @@ export class CoopBattle {
         en.netId, en.typeId, en.name ?? '',
         round2(en.mesh.position.x), round2(en.mesh.position.y), round2(en.mesh.position.z), round2(en.mesh.rotation.y),
         Math.round(en.hp), Math.round(en.maxHp), en.bossPhase ?? 1,
+        Math.max(0, Math.round((en.stunTimer ?? 0) * 10) / 10),
       ]);
     }
     this.net.send({ t: 'es', n: ++this.snapSeq, e, fx: fx.slice(0, 12) }, false);
@@ -594,9 +605,12 @@ export class CoopBattle {
     this.byNet.forEach((en, id) => {
       const base = en.netHp ?? en.hp;
       const d = base - en.hp;
-      if (d >= 0.5) {
-        list.push([id, Math.round(d)]);
-        en.netHp = en.hp;
+      const stun = en.stunReq ?? 0;
+      if (d >= 0.5 || stun > 0) {
+        const dmg = d >= 0.5 ? Math.round(d) : 0;
+        list.push(stun > 0 ? [id, dmg, stun] : [id, dmg]);
+        if (dmg > 0) en.netHp = en.hp;
+        en.stunReq = 0;
       }
     });
     if (list.length) this.net.send({ t: 'dmg', l: list });

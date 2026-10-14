@@ -182,6 +182,8 @@ export interface HudWeaponState {
   isRechargeable: boolean;
   /** 投擲系武器の場に出ている数 / 手元の数 (VOLT SENTRY・ORBITAL RONDO) */
   throwInfo?: { label: string; cur: number; max: number } | null;
+  /** スロット番号 → 投擲物の所持数 (持っていないスロットの分も含む) */
+  slotStock?: Record<number, { cur: number; max: number }>;
 }
 
 export const HudWeapon: React.FC<{
@@ -409,12 +411,15 @@ const Key: React.FC<{ k: string; t: string; kb?: boolean }> = ({ k, t, kb }) => 
 export const HudSlots: React.FC<{
   slots: { slot: WeaponSlot; weapon?: Weapon }[];
   current: number;
+  /** 投擲物スロットの所持数 */
+  stock?: Record<number, { cur: number; max: number }>;
   onSelect: (slot: WeaponSlot) => void;
-}> = ({ slots, current, onSelect }) => (
+}> = ({ slots, current, stock, onSelect }) => (
   <div className="flex gap-1.5 pointer-events-auto">
     {slots.map(({ slot, weapon }) => {
       const isCur = current === slot;
       const thumb = weapon ? getWeaponThumbnail(weapon) : null;
+      const st = weapon ? stock?.[slot] : undefined;
       return (
         <button
           key={slot}
@@ -439,6 +444,15 @@ export const HudSlots: React.FC<{
             <span className="text-[9px] font-cyber text-white/40">{weapon ? weapon.codeName.split('-')[0] : 'EMPTY'}</span>
           )}
           {weapon && <span className={`text-[8px] font-cyber tracking-wider truncate max-w-[80px] ${isCur ? 'text-white' : 'text-white/45'}`}>{weapon.name.split('//')[0].trim()}</span>}
+          {st && (
+            <span
+              className="absolute top-0.5 right-1.5 flex items-baseline gap-px text-[10px] font-cyber font-black tabular-nums leading-none"
+              style={{ color: st.cur <= 0 ? '#f87171' : weapon!.color, textShadow: '0 0 4px rgba(0,0,0,0.9)' }}
+            >
+              ×{st.cur}
+              <span className="text-[7px] text-white/40 font-bold">/{st.max}</span>
+            </span>
+          )}
         </button>
       );
     })}
