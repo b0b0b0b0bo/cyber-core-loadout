@@ -174,15 +174,29 @@ export class NetSession {
         this.peer = null;
         reject(new Error(text));
       };
-      const timer = setTimeout(() => fail('部屋が見つかりません (コードを確認してください)'), 12000);
+      // どの段階で止まったかを区別する: broker=接続サーバー, room=部屋の検索, link=端末同士の接続
+      let stage: 'broker' | 'room' | 'link' = 'broker';
+      const timer = setTimeout(() => {
+        if (stage === 'broker') fail('接続サーバー (0.peerjs.com) に繋がりません。この端末のネットワークが遮断している可能性があります');
+        else fail('部屋は見つかりましたが、ホストの端末と直接接続できませんでした (ネットワークが通信を遮断している可能性)');
+      }, 25000);
       peer.on('error', (err) => {
         clearTimeout(timer);
-        fail(err.type === 'peer-unavailable' ? '部屋が見つかりません (コードを確認してください)' : '接続サーバーに繋がりません');
+        fail(
+          err.type === 'peer-unavailable'
+            ? '部屋が見つかりません (コードが違うか、ホストが部屋を開いていません)'
+            : `接続サーバーに繋がりません (${err.type})`,
+        );
       });
       peer.on('open', () => {
+        stage = 'room';
         const conn = peer.connect(ROOM_PREFIX + code, { reliable: true });
         const link: Link = { id: HOST_ID, name: '', conn, open: false };
         this.links.set(HOST_ID, link);
+        // 部屋のホストが応答すると、端末同士の接続の確立待ちになる
+        setTimeout(() => {
+          if (!link.open) stage = 'link';
+        }, 3000);
         conn.on('open', () => {
           clearTimeout(timer);
           link.open = true;
