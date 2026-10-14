@@ -36,6 +36,8 @@ interface SkillTreeScreenProps {
   onUpgradeWeaponDamage?: (weaponId: string, levels: number, cost: number) => void;
   nodeLevels?: Record<string, number>;
   onUpgradeNode?: (nodeId: string, levels: number, cost: number, beacons?: number) => void;
+  /** 画面表示時に選択＆センタリングするノード */
+  focusNodeId?: string | null;
 }
 
 /** パネルの四隅に置くHUD風のブラケット */
@@ -69,6 +71,7 @@ export const SkillTreeScreen: React.FC<SkillTreeScreenProps> = ({
   onUpgradeWeaponDamage,
   nodeLevels = {},
   onUpgradeNode,
+  focusNodeId = null,
 }) => {
   const HUD = usePalette();
   const [activeBranch, setActiveBranch] = useState<SkillBranch | 'ALL'>('ALL');
@@ -290,6 +293,20 @@ export const SkillTreeScreen: React.FC<SkillTreeScreenProps> = ({
     setPan({ x: -z * (cx - vb.cx), y: -z * (cy - vb.cy) });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeBranch, vb]);
+
+  // 武器編成画面から飛んできたとき: そのノードを選択してセンタリング (系統切替の効果より後に実行して上書き)
+  useEffect(() => {
+    if (!focusNodeId) return;
+    const node = nodes.find((n) => n.id === focusNodeId);
+    if (!node) return;
+    const p = posOf(node);
+    const z = 1.8;
+    setActiveBranch('ALL');
+    setSelectedNodeId(node.id);
+    setZoom(z);
+    setPan({ x: -z * (p.x - vb.cx), y: -z * (p.y - vb.cy) });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusNodeId]);
 
   // Helper to render pure SVG icon inside nodes
   const renderNodeIcon = (node: SkillNode, isUnlocked: boolean, isAvail: boolean, themeColor: string) => {

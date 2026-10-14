@@ -22,6 +22,7 @@ import {
   EyeOff,
   Swords,
   RotateCcw,
+  ArrowUpCircle,
 } from 'lucide-react';
 
 type WeaponBranch = SkillBranch;
@@ -106,6 +107,8 @@ interface LoadoutScreenProps {
   weaponDamageLevels?: Record<string, number>;
   onEquipWeapon: (slot: WeaponSlot, weaponId: string | null) => void;
   onGoToSkillTree?: () => void;
+  /** 選択中の武器の解放ノードへ飛んでガジェットツリーを開く */
+  onUpgradeWeapon?: (weaponId: string) => void;
 }
 
 export const LoadoutScreen: React.FC<LoadoutScreenProps> = ({
@@ -114,6 +117,7 @@ export const LoadoutScreen: React.FC<LoadoutScreenProps> = ({
   weaponDamageLevels = {},
   onEquipWeapon,
   onGoToSkillTree,
+  onUpgradeWeapon,
 }) => {
   const unlockedWeapons = useMemo(() => weapons.filter((w) => w.unlocked), [weapons]);
 
@@ -739,6 +743,18 @@ export const LoadoutScreen: React.FC<LoadoutScreenProps> = ({
                 )}
               </button>
             </div>
+            {onUpgradeWeapon && (
+              <button
+                onClick={() => {
+                  sound.playUiClick();
+                  onUpgradeWeapon(selectedWeapon.id);
+                }}
+                className="mt-2 shrink-0 w-full py-2 rounded-xl border border-sky-300 bg-sky-50 text-[12px] font-bold text-sky-700 hover:bg-sky-100 hover:border-sky-400 flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <ArrowUpCircle className="w-4 h-4" />
+                強化する
+              </button>
+            )}
             {slotWeapon && equippedCount > 1 && (
               <button
                 onClick={() => {

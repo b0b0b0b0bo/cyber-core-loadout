@@ -23,6 +23,7 @@ import {
   Crosshair,
   Gift,
   ChevronsRight,
+  ChevronsLeft,
   Play,
   Navigation,
 } from 'lucide-react';
@@ -824,36 +825,53 @@ export const MissionMap3D: React.FC<MissionMap3DProps> = ({ missions, selectedMi
                 MAP
               </span>
             </button>
-            {WORLD_MAPS.map((wm) => {
-              const isCur = viewMode === 'map' && activeMapId === wm.id;
-              const locked = isMapLocked(wm.id);
+            {(() => {
+              const idx = WORLD_MAPS.findIndex((wm) => wm.id === activeMapId);
+              const wm = WORLD_MAPS[idx];
+              const isCur = viewMode === 'map';
               const c = mapColor(wm);
+              const arrow = (dir: -1 | 1) => {
+                const target = WORLD_MAPS[idx + dir];
+                const Icon = dir < 0 ? ChevronsLeft : ChevronsRight;
+                return (
+                  <button
+                    onClick={() => target && handleSelectMap(target.id)}
+                    disabled={!target}
+                    title={target ? `${target.badge} ${target.name.split('//')[0].trim()}` : undefined}
+                    className="w-9 flex items-center justify-center cursor-pointer transition-all hover:bg-hud-tile disabled:opacity-25 disabled:cursor-default"
+                    style={{ color: c, clipPath: cutCorners(8) }}
+                  >
+                    <Icon className="w-5 h-5" />
+                  </button>
+                );
+              };
               return (
-                <button
-                  key={wm.id}
-                  onClick={() => handleSelectMap(wm.id)}
-                  title={locked ? `ロック中: ${wm.requiredBossName} を撃破で解放` : wm.name}
-                  className={`relative flex items-center gap-2 pl-2.5 pr-3 py-2 min-w-[128px] cursor-pointer transition-all ${
-                    isCur ? '' : 'hover:bg-hud-tile'
-                  }`}
-                  style={{
-                    clipPath: cutCorners(8),
-                    background: isCur ? `linear-gradient(135deg, ${c}, color-mix(in srgb, ${c} 70%, #0b1220))` : HUD.isDark ? 'rgba(15,23,42,0.6)' : 'rgba(226,232,240,0.6)',
-                    color: isCur ? '#fff' : locked ? 'var(--hud-dim)' : 'var(--hud-muted)',
-                    boxShadow: isCur ? `0 0 18px color-mix(in srgb, ${c} 45%, transparent)` : 'none',
-                  }}
-                >
-                  {locked ? <Lock className="w-5 h-5" /> : MAP_ICONS[wm.id]}
-                  <span className="text-left leading-tight">
-                    <span className="block text-[10px] font-cyber tracking-[0.18em] opacity-90">{wm.badge}</span>
-                    <span className="block text-[11px] font-cyber font-bold tracking-wider">{wm.name.split('//')[0].trim()}</span>
-                  </span>
-                  {!locked && missions.some((m) => m.id === wm.bossMissionId && m.cleared) && (
-                    <CheckCircle2 className="w-3.5 h-3.5 ml-auto" style={{ color: isCur ? '#fff' : 'var(--hud-ok)' }} />
-                  )}
-                </button>
+                <>
+                  {arrow(-1)}
+                  <button
+                    onClick={() => handleSelectMap(wm.id)}
+                    title={wm.name}
+                    className="relative flex items-center gap-2 pl-2.5 pr-3 py-2 min-w-[150px] cursor-pointer transition-all"
+                    style={{
+                      clipPath: cutCorners(8),
+                      background: isCur ? `linear-gradient(135deg, ${c}, color-mix(in srgb, ${c} 70%, #0b1220))` : HUD.isDark ? 'rgba(15,23,42,0.6)' : 'rgba(226,232,240,0.6)',
+                      color: isCur ? '#fff' : 'var(--hud-muted)',
+                      boxShadow: isCur ? `0 0 18px color-mix(in srgb, ${c} 45%, transparent)` : 'none',
+                    }}
+                  >
+                    {MAP_ICONS[wm.id]}
+                    <span className="text-left leading-tight">
+                      <span className="block text-[10px] font-cyber tracking-[0.18em] opacity-90">{wm.badge}</span>
+                      <span className="block text-[11px] font-cyber font-bold tracking-wider">{wm.name.split('//')[0].trim()}</span>
+                    </span>
+                    {missions.some((m) => m.id === wm.bossMissionId && m.cleared) && (
+                      <CheckCircle2 className="w-3.5 h-3.5 ml-auto" style={{ color: isCur ? '#fff' : 'var(--hud-ok)' }} />
+                    )}
+                  </button>
+                  {arrow(1)}
+                </>
               );
-            })}
+            })()}
           </div>
 
           {viewMode === 'map' && (

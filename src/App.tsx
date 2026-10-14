@@ -38,6 +38,10 @@ const NAV_ITEMS: { screen: ScreenState; label: string; sub: string; icon: React.
   { screen: 'SKILL_TREE', label: 'GADGET', sub: 'ツリー強化', icon: <GitFork className="w-3.5 h-3.5" /> },
 ];
 
+// 開発者モード (Gキーで全武器/全ステージ解放)。ローカルの .env.local に VITE_DEV_MODE=true があるときだけ有効。
+// .env.local は git 管理外なので GitHub 版では無効になる。
+const DEV_MODE = (import.meta as any).env?.VITE_DEV_MODE === 'true';
+
 export default function App() {
   // Global Game State
   const [currentScreen, setCurrentScreen] = useState<ScreenState>('MISSION_SELECT');
@@ -50,6 +54,9 @@ export default function App() {
 
   // Active Selected Mission for 3D Map / Sortie
   const [selectedMission, setSelectedMission] = useState<Mission | null>(initialGame.selectedMission);
+
+  // 武器編成画面から「強化する」で飛ぶ先のガジェットノード
+  const [focusNodeId, setFocusNodeId] = useState<string | null>(null);
 
   // 進行状況が変わるたびに自動保存
   useEffect(() => {
@@ -410,7 +417,9 @@ export default function App() {
                 selectedMission={selectedMission}
                 onSelectMission={(m) => setSelectedMission(m)}
                 onStartMission={handleStartMission}
-                onUnlockAll={() => setMissions((prev) => prev.map((m) => (m.unlocked ? m : { ...m, unlocked: true })))}
+                onUnlockAll={
+                  DEV_MODE ? () => setMissions((prev) => prev.map((m) => (m.unlocked ? m : { ...m, unlocked: true }))) : undefined
+                }
               />
             </motion.div>
           )}
@@ -430,7 +439,15 @@ export default function App() {
                 userScrap={playerStats.scrap}
                 weaponDamageLevels={playerStats.weaponDamageLevels}
                 onEquipWeapon={handleEquipWeapon}
-                onGoToSkillTree={() => setCurrentScreen('SKILL_TREE')}
+                onGoToSkillTree={() => {
+                  setFocusNodeId(null);
+                  setCurrentScreen('SKILL_TREE');
+                }}
+                onUpgradeWeapon={(weaponId) => {
+                  const node = skillNodes.find((n) => n.unlocksWeaponId === weaponId);
+                  setFocusNodeId(node ? node.id : null);
+                  setCurrentScreen('SKILL_TREE');
+                }}
               />
             </motion.div>
           )}
@@ -451,10 +468,11 @@ export default function App() {
                 userBeacons={playerStats.beacons}
                 weaponDamageLevels={playerStats.weaponDamageLevels}
                 onUnlockNode={handleUnlockSkillNode}
-                onUnlockAllWeapons={handleUnlockAllWeapons}
+                onUnlockAllWeapons={DEV_MODE ? handleUnlockAllWeapons : undefined}
                 onUpgradeWeaponDamage={handleUpgradeWeaponDamage}
                 nodeLevels={playerStats.nodeLevels}
                 onUpgradeNode={handleUpgradeNode}
+                focusNodeId={focusNodeId}
               />
             </motion.div>
           )}
