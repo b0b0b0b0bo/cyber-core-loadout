@@ -51,6 +51,15 @@ export interface CoopWaveInfo {
   bossName?: string;
 }
 
+export interface ReviveInfo {
+  /** 自分がダウン中: 蘇生までの残り秒 (誰も救助していなければ null) */
+  selfRemain: number | null;
+  /** 自分が味方を救助中 */
+  rescue: { name: string; remain: number } | null;
+  /** ダウン中の味方の名前 */
+  downed: string[];
+}
+
 export interface BulletMirror {
   from: number[];
   dir: number[];
@@ -77,6 +86,8 @@ export interface CoopCtx {
   setLiving: (n: number) => void;
   /** 近くの味方に起こされた */
   revive: (fraction: number) => void;
+  /** 蘇生・ダウン状況が変わった (HUD 表示用) */
+  onReviveInfo: (info: ReviveInfo) => void;
   notify: (text: string) => void;
 }
 
@@ -100,6 +111,10 @@ interface Remote {
   labelCtx: CanvasRenderingContext2D;
   labelTex: THREE.CanvasTexture;
   labelKey: string;
+  wasKo: boolean;
+  reviveT: number;
+  circle: THREE.Group;
+  circleFill: THREE.Mesh;
 }
 
 interface Tracer {
@@ -111,6 +126,9 @@ export const PLAYER_COLORS = ['#22d3ee', '#f472b6', '#a3e635', '#fbbf24'];
 const EYE_Y = 1.7;
 const STATE_HZ = 20;
 const SNAP_HZ = 15;
+/** 蘇生円の半径 (m) と、円内に味方がいて蘇生が完了するまでの秒数 */
+const REVIVE_RADIUS = 3.5;
+const REVIVE_TIME = 5;
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
@@ -136,6 +154,9 @@ export class CoopBattle {
   private byNet = new Map<number, CoopEnemy>();
   private reviveT = 0;
   private lastKo = false;
+  private localCircle: THREE.Group;
+  private localCircleFill: THREE.Mesh;
+  private infoKey = '';
   private disposed = false;
 
   constructor(net: NetSession, ctx: CoopCtx) {
@@ -143,6 +164,32 @@ export class CoopBattle {
     this.isHost = net.isHost;
     this.ctx = ctx;
     this.off = net.on(this.handle);
+    const lc = this.makeCircle();
+    this.localCircle = lc.group;
+    this.localCircleFill = lc.fill;
+    ctx.scene.add(this.localCircle);
+  }
+
+  /** 地面に置く蘇生円 (外周リング + 進捗で広がる塗り) */
+  private makeCircle() {
+    const group = new THREE.Group();
+    const ring = new THREE.Mesh(
+      new THREE.RingGeometry(REVIVE_RADIUS - 0.12, REVIVE_RADIUS, 48),
+      new THREE.MeshBasicMaterial({ color: 0x34d399, side: THREE.DoubleSide, transparent: true, opacity: 0.9, depthWrite: false }),
+    );
+    ring.rotation.x = -Math.PI / 2;
+    group.add(ring);
+    const fill = new THREE.Mesh(
+      new THREE.CircleGeometry(REVIVE_RADIUS, 48),
+      new THREE.MeshBasicMaterial({ color: 0x34d399, side: THREE.DoubleSide, transparent: true, opacity: 0.22, depthWrite: false }),
+    );
+    fill.rotation.x = -Math.PI / 2;
+    fill.position.y = 0.01;
+    fill.scale.setScalar(0.001);
+    group.add(fill);
+    group.position.y = 0.06;
+    group.visible = false;
+    return { group, fill };
   }
 
   // ───────────── 参照 ─────────────
@@ -376,22 +423,61 @@ export class CoopBattle {
       this.drawLabel(r);
     });
 
-    // ダウン → 近くの味方が一定時間そばにいると復帰
+    // ダウン → 円内に味方が REVIVE_TIME 秒いると復帰
+    const inCircle = (x: number, z: number, cx: number, cz: number) => Math.hypot(x - cx, z - cz) <= REVIVE_RADIUS;
+    let selfRemain: number | null = null;
     if (local.ko) {
       let near = false;
       this.remotes.forEach((r) => {
-        if (!r.ko && r.seen && Math.hypot(r.eye.x - local.pos.x, r.eye.z - local.pos.z) < 3.5) near = true;
+        if (!r.ko && r.seen && inCircle(r.eye.x, r.eye.z, local.pos.x, local.pos.z)) near = true;
       });
-      this.reviveT = near ? this.reviveT + delta : 0;
-      if (this.reviveT >= 4) {
+      this.reviveT = near ? this.reviveT + delta : Math.max(0, this.reviveT - delta * 2);
+      if (near) selfRemain = Math.max(0, REVIVE_TIME - this.reviveT);
+      if (this.reviveT >= REVIVE_TIME) {
         this.reviveT = 0;
         this.ctx.revive(0.4);
-        this.ctx.notify('味方に救助された！');
+        this.ctx.notify('味方に蘇生された！');
       }
     } else {
       this.reviveT = 0;
     }
     this.lastKo = local.ko;
+    this.localCircle.visible = local.ko;
+    if (local.ko) {
+      this.localCircle.position.set(local.pos.x, 0.06, local.pos.z);
+      this.localCircleFill.scale.setScalar(Math.max(0.001, this.reviveT / REVIVE_TIME));
+    }
+
+    // 味方側: ダウンした仲間の蘇生円と進捗
+    let rescue: { name: string; remain: number } | null = null;
+    const downed: string[] = [];
+    this.remotes.forEach((r) => {
+      if (r.ko && !r.wasKo) this.ctx.notify(`⚠ ${r.name} がダウン！ 救助せよ`);
+      if (!r.ko && r.wasKo) r.reviveT = 0;
+      r.wasKo = r.ko;
+      r.circle.visible = r.ko && r.seen;
+      if (!r.ko) return;
+      downed.push(r.name);
+      let helper = !local.ko && inCircle(local.pos.x, local.pos.z, r.eye.x, r.eye.z);
+      if (!helper) {
+        this.remotes.forEach((o) => {
+          if (o !== r && !o.ko && o.seen && inCircle(o.eye.x, o.eye.z, r.eye.x, r.eye.z)) helper = true;
+        });
+      }
+      r.reviveT = helper ? Math.min(REVIVE_TIME, r.reviveT + delta) : Math.max(0, r.reviveT - delta * 2);
+      r.circle.position.set(r.eye.x, r.group.position.y + 0.06, r.eye.z);
+      r.circleFill.scale.setScalar(Math.max(0.001, r.reviveT / REVIVE_TIME));
+      if (!local.ko && inCircle(local.pos.x, local.pos.z, r.eye.x, r.eye.z)) {
+        const remain = Math.max(0, REVIVE_TIME - r.reviveT);
+        if (!rescue || remain < rescue.remain) rescue = { name: r.name, remain };
+      }
+    });
+    const rs = rescue as { name: string; remain: number } | null;
+    const key = `${selfRemain === null ? '-' : selfRemain.toFixed(1)}|${rs ? rs.name + rs.remain.toFixed(1) : '-'}|${downed.join(',')}`;
+    if (key !== this.infoKey) {
+      this.infoKey = key;
+      this.ctx.onReviveInfo({ selfRemain, rescue: rs, downed });
+    }
 
     // トレーサー
     for (let i = this.tracers.length - 1; i >= 0; i--) {
@@ -536,11 +622,14 @@ export class CoopBattle {
     group.add(label);
 
     this.ctx.scene.add(group);
+    const circ = this.makeCircle();
+    this.ctx.scene.add(circ.group);
     return {
       id, name: this.net.nameOf(id), color,
       eye: new THREE.Vector3(0, EYE_Y, 0), target: new THREE.Vector3(0, EYE_Y, 0),
       yaw: 0, targetYaw: 0, pitch: 0, hp: 100, maxHp: 100, ko: false, seen: false,
       group, gun, body, label, labelCtx, labelTex, labelKey: '',
+      wasKo: false, reviveT: 0, circle: circ.group, circleFill: circ.fill,
     };
   }
 
@@ -576,8 +665,19 @@ export class CoopBattle {
     this.tracers.push({ line, life: 0.14 });
   }
 
+  private disposeCircle(g: THREE.Group) {
+    this.ctx.scene.remove(g);
+    g.traverse((o) => {
+      if (o instanceof THREE.Mesh) {
+        o.geometry.dispose();
+        (o.material as THREE.Material).dispose();
+      }
+    });
+  }
+
   private disposeRemote(r: Remote) {
     this.ctx.scene.remove(r.group);
+    this.disposeCircle(r.circle);
     r.group.traverse((o) => {
       if (o instanceof THREE.Mesh || o instanceof THREE.Sprite) {
         (o as THREE.Mesh).geometry?.dispose?.();
@@ -594,6 +694,7 @@ export class CoopBattle {
     this.off();
     this.remotes.forEach((r) => this.disposeRemote(r));
     this.remotes.clear();
+    this.disposeCircle(this.localCircle);
     this.tracers.forEach((t) => {
       this.ctx.scene.remove(t.line);
       t.line.geometry.dispose();

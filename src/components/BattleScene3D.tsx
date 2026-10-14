@@ -45,7 +45,7 @@ import { GUARD_PROFILES, MELEE_READY_POSE, LANCE_MAX_CHARGE, buildGuardFx, updat
 import { getNodeLevel, scaledEffectValue } from '../data/nodeLevels';
 import { WORLD_MAPS } from '../data/initialData';
 import { NetSession } from '../utils/netplay';
-import { CoopBattle, CoopEnemy } from '../utils/coopBattle';
+import { CoopBattle, CoopEnemy, ReviveInfo } from '../utils/coopBattle';
 
 interface BattleScene3DProps {
   mission: Mission;
@@ -2315,6 +2315,7 @@ export const BattleScene3D: React.FC<BattleScene3DProps> = ({
   /** 協力プレイ: ダウン中 (無敵・攻撃不可。次のウェーブか味方の救助で復帰) */
   const koRef = useRef(false);
   const [koUi, setKoUi] = useState(false);
+  const [reviveInfo, setReviveInfo] = useState<ReviveInfo>({ selfRemain: null, rescue: null, downed: [] });
   const playerShieldRef = useRef(80);
   const staminaRef = useRef(100);
   const dashCooldownRef = useRef(0);
@@ -6208,7 +6209,7 @@ export const BattleScene3D: React.FC<BattleScene3DProps> = ({
 
   // Dash Action (Shift key tap) - STAMINA SYSTEM ABOLISHED (UNRESTRICTED AGILITY)
   const executeDash = useCallback(() => {
-    if (dashCooldownRef.current > 0 || isPausedRef.current) return;
+    if (dashCooldownRef.current > 0 || isPausedRef.current || koRef.current) return;
     sound.playDash();
     dashCooldownRef.current = Math.max(0.5, 1.0 * passivesRef.current.dashCooldownMultiplier);
 
@@ -6220,7 +6221,7 @@ export const BattleScene3D: React.FC<BattleScene3DProps> = ({
 
   // Jump Action (Space key) - WITH DASH-JUMP MOMENTUM INHERITANCE (FREE & UNLIMITED)
   const executeJump = useCallback(() => {
-    if (isPausedRef.current) return;
+    if (isPausedRef.current || koRef.current) return;
     // Check if player is on the ground
     if (playerPos.current.y <= 1.72) {
       const k = keysPressed.current;
@@ -6825,7 +6826,7 @@ export const BattleScene3D: React.FC<BattleScene3DProps> = ({
       isMouseDownRef.current = false;
       isAimingRef.current = false;
       sound.playDefeat();
-      setAnnouncement('DOWN // 味方が近くにいると復帰 ／ 次のウェーブで復帰');
+      setAnnouncement('DOWN // 円内に味方が5秒いると蘇生 ／ 次のウェーブで復帰');
       syncHudState();
     };
     reviveLocal = (fraction: number) => {
@@ -7082,6 +7083,7 @@ export const BattleScene3D: React.FC<BattleScene3DProps> = ({
         },
         setLiving: () => {},
         revive: (fraction) => reviveLocal(fraction),
+        onReviveInfo: (info) => setReviveInfo(info),
         notify: (text) => setAnnouncement(text),
       });
       if (coop.isHost) hazards.onAdd = (spec) => coop?.sendHazard(spec);
@@ -7170,6 +7172,12 @@ export const BattleScene3D: React.FC<BattleScene3DProps> = ({
       if (k['s']) _moveDir.sub(_forward);
       if (k['d']) _moveDir.add(_right);
       if (k['a']) _moveDir.sub(_right);
+      if (koRef.current) {
+        // ダウン中は動けない
+        _moveDir.set(0, 0, 0);
+        playerVelocity.current.x = 0;
+        playerVelocity.current.z = 0;
+      }
 
       const isSprintingActive = !!k['shift'];
       const speedMultiplier = isSprintingActive ? 1.75 : 1.0;
@@ -10822,7 +10830,25 @@ export const BattleScene3D: React.FC<BattleScene3DProps> = ({
       {koUi && (
         <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center bg-red-950/40">
           <div className="text-5xl font-black tracking-[0.4em] text-red-400 font-cyber">DOWN</div>
-          <div className="mt-3 text-sm text-slate-200 font-gothic">味方がそばに4秒いると復帰 ／ 次のウェーブで復帰</div>
+          {reviveInfo.selfRemain !== null ? (
+            <div className="mt-4 flex flex-col items-center">
+              <div className="text-xs tracking-[0.3em] text-emerald-300 font-cyber">REVIVING</div>
+              <div className="text-6xl font-black text-emerald-300 font-cyber tabular-nums">{reviveInfo.selfRemain.toFixed(1)}</div>
+            </div>
+          ) : (
+            <div className="mt-3 text-sm text-slate-200 font-gothic">味方が足元の円内に5秒いると蘇生 ／ 次のウェーブで復帰</div>
+          )}
+        </div>
+      )}
+      {reviveInfo.rescue && (
+        <div className="absolute left-1/2 top-[58%] -translate-x-1/2 pointer-events-none z-20 flex flex-col items-center">
+          <div className="text-xs tracking-[0.3em] text-emerald-300 font-cyber">RESCUING // {reviveInfo.rescue.name}</div>
+          <div className="text-5xl font-black text-emerald-300 font-cyber tabular-nums">{reviveInfo.rescue.remain.toFixed(1)}</div>
+        </div>
+      )}
+      {reviveInfo.downed.length > 0 && !koUi && (
+        <div className="absolute left-1/2 top-24 -translate-x-1/2 pointer-events-none z-20 px-4 py-1.5 bg-red-950/70 border border-red-500/60 font-cyber text-sm font-black tracking-widest text-red-300 animate-pulse">
+          ⚠ {reviveInfo.downed.join(' / ')} がダウン // 救助せよ
         </div>
       )}
 
