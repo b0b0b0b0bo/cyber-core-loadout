@@ -46,7 +46,7 @@ import { getReloadStyle, getWeaponReloadPose, getReloadPolish, getReloadEvents, 
 import { getPistolReloadPose } from '../utils/pistolReload';
 import { GUARD_PROFILES, MELEE_READY_POSE, LANCE_MAX_CHARGE, buildGuardFx, updateGuardFx } from '../utils/meleeGuards';
 import { getNodeLevel, scaledEffectValue } from '../data/nodeLevels';
-import { WORLD_MAPS } from '../data/initialData';
+import { WORLD_MAPS, effectiveScrapReward } from '../data/initialData';
 import { NetSession } from '../utils/netplay';
 import { CoopBattle, CoopEnemy, ReviveInfo } from '../utils/coopBattle';
 import {
@@ -2468,7 +2468,7 @@ function createEnemyInstance(
     baseSpeed: speed,
     damage: scaledDamage,
     scoreValue: Math.round(scaledHp * 5),
-    scrapValue: Math.round(scaledHp * 0.2),
+    scrapValue: Math.max(1, Math.round(hp * 0.2 * Math.sqrt(difficultyMultiplier))),
     attackCooldown: Math.random() * 2,
     shootCooldown: 1.5 + Math.random() * 2.0,
     isDead: false,
@@ -7092,7 +7092,7 @@ export const BattleScene3D: React.FC<BattleScene3DProps> = ({
       }
 
       battleStats.current.coresEarned = (isVictory ? mission.coreReward : 0) + beaconDroppedRef.current;
-      battleStats.current.scrapEarned += isVictory ? mission.scrapReward : 25;
+      battleStats.current.scrapEarned += isVictory ? effectiveScrapReward(mission.scrapReward) : 25;
 
       const result: BattleResult = {
         missionId: mission.id,

@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { MapId, Mission, WorldMapDef } from '../types';
-import { WORLD_MAPS } from '../data/initialData';
+import { WORLD_MAPS, effectiveScrapReward } from '../data/initialData';
 import { sound } from '../utils/sound';
 import { getEnemyThumbnail } from '../utils/enemyThumbnails';
 import {
@@ -1104,7 +1104,7 @@ export const MissionMap3D: React.FC<MissionMap3DProps> = ({ missions, baseMissio
                       <div>
                         <div className="text-[10px] text-hud-dim font-cyber tracking-wider">SCRAP</div>
                         <div className="text-xl font-cyber font-bold tabular-nums" style={{ color: accent }}>
-                          +{selectedMission.scrapReward.toLocaleString()}
+                          +{effectiveScrapReward(selectedMission.scrapReward).toLocaleString()}
                         </div>
                       </div>
                     </div>
