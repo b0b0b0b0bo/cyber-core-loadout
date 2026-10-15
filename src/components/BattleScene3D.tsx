@@ -1709,7 +1709,13 @@ const STAGE_DIFFICULTY: Record<string, number> = {
 const HARD_STAGE_OFFSET = 21;
 const STAGE_ORDER = Object.keys(STAGE_DIFFICULTY);
 
-function getMissionDifficultyMultiplier(mission?: Mission, hard = false): number {
+/** 推奨武器レベル: 武器ダメージ(+3%/Lv)が敵HP倍率の約75%に追いつく目安 (5刻み) */
+export function getRecommendedWeaponLevel(mission: Mission, hard = false): number {
+  const d = getMissionDifficultyMultiplier(mission, hard);
+  return Math.min(300, Math.max(0, Math.round(((d - 1) / 0.03) * 0.75 / 5) * 5));
+}
+
+export function getMissionDifficultyMultiplier(mission?: Mission, hard = false): number {
   if (!mission) return 1.0;
   const ramp = STAGE_DIFFICULTY[mission.id];
   if (hard && ramp !== undefined) {

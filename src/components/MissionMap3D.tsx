@@ -29,6 +29,7 @@ import {
   Play,
   Navigation,
 } from 'lucide-react';
+import { getRecommendedWeaponLevel } from './BattleScene3D';
 import { usePalette, cutCorners } from '../theme';
 
 const MAP_ICONS: Record<number, React.ReactNode> = {
@@ -1044,6 +1045,17 @@ export const MissionMap3D: React.FC<MissionMap3DProps> = ({ missions, baseMissio
                         }}
                       />
                     ))}
+                  </div>
+                </div>
+
+                {/* Recommended weapon level */}
+                <div className="flex items-center justify-between px-4 py-3 rounded-lg bg-hud-tile border border-hud-line">
+                  <div className="flex items-center gap-2 text-xs font-bold">
+                    <Crosshair className="w-4 h-4 text-hud-warn" />
+                    推奨武器レベル <span className="text-hud-dim font-cyber text-[10px] tracking-wider">(REC. WEAPON LV)</span>
+                  </div>
+                  <div className="font-cyber text-lg font-black" style={{ color: selColor }}>
+                    Lv {getRecommendedWeaponLevel(selectedMission, hardMode)}
                   </div>
                 </div>
 
