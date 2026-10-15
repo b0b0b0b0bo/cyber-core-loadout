@@ -37,6 +37,7 @@ import { createRig, animateEnemy, animateBossMotion, EnemyRig } from '../utils/e
 import { buildEliteEnemy, isEliteType } from '../utils/eliteEnemyModels';
 import { buildApexEnemy, isApexType } from '../utils/apexEnemyModels';
 import { buildBloomEnemy, isBloomType } from '../utils/bloomEnemyModels';
+import { buildIceEnemy, isIceType } from '../utils/iceEnemyModels';
 import { updateApexEnemy, isApexCategory, apexDamageGate, apexOnDeath } from '../utils/apexEnemyAI';
 import { CombatHazards, HurtFn } from '../utils/combatHazards';
 import { updateEliteEnemy, isEliteCategory, isFlyingCategory, disposeEnemyAux, CombatCtx, EnemyBulletSpec } from '../utils/eliteEnemyAI';
@@ -106,6 +107,10 @@ const ENEMY_BASE_CATEGORY: Record<string, EnemyCategory> = {
   thistle: 'sentry',
   treant: 'golem',
   rafflesia: 'titan',
+  // MAP 6 (FROZEN ARCHIVE): ice units
+  flurry: 'drone',
+  yeti: 'golem',
+  shard: 'sentry',
 };
 const baseCategoryOf = (typeId: string): EnemyCategory =>
   ENEMY_BASE_CATEGORY[typeId] ?? (typeId as EnemyCategory);
@@ -1731,6 +1736,8 @@ export function buildEnemyModel(type: string, group: THREE.Group): { hp: number;
   if (apex) return apex;
   const bloom = buildBloomEnemy(type, group);
   if (bloom) return bloom;
+  const ice = buildIceEnemy(type, group);
+  if (ice) return ice;
   const std = (color: number, metalness = 0.82, roughness = 0.38) => new THREE.MeshStandardMaterial({ color, metalness, roughness });
   const glow = (color: number) => new THREE.MeshBasicMaterial({ color });
   const halo = (color: number, opacity = 0.28) => new THREE.MeshBasicMaterial({
@@ -2282,7 +2289,7 @@ function createEnemyInstance(
   const { hp, speed, damage } = buildEnemyModel(enDef.enemyTypeId, group);
 
   // Apply archetype-specific procedural surface textures to solid enemy armor (elites carry their own).
-  const elite = isEliteType(enDef.enemyTypeId) || isApexType(enDef.enemyTypeId) || isBloomType(enDef.enemyTypeId);
+  const elite = isEliteType(enDef.enemyTypeId) || isApexType(enDef.enemyTypeId) || isBloomType(enDef.enemyTypeId) || isIceType(enDef.enemyTypeId);
   const enemyTexture = elite || isBossDef ? null : createEnemySurfaceTexture(enDef.enemyTypeId);
   if (enemyTexture) group.traverse((obj) => {
     if (!(obj instanceof THREE.Mesh)) return;
