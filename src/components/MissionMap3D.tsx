@@ -21,6 +21,9 @@ import {
   Mountain,
   Snowflake,
   Trees,
+  Flame,
+  CloudLightning,
+  CircuitBoard,
   FileText,
   Crosshair,
   Gift,
@@ -40,6 +43,9 @@ const MAP_ICONS: Record<number, React.ReactNode> = {
   5: <Mountain className="w-5 h-5" />,
   6: <Snowflake className="w-5 h-5" />,
   7: <Trees className="w-5 h-5" />,
+  8: <Flame className="w-5 h-5" />,
+  9: <CloudLightning className="w-5 h-5" />,
+  10: <CircuitBoard className="w-5 h-5" />,
 };
 
 /** World-map districts: a shallow zig-zag centred on the origin, one spot per map (so adding a map needs no layout edit). */
@@ -316,6 +322,21 @@ export const MissionMap3D: React.FC<MissionMap3DProps> = ({ missions, baseMissio
           // overgrown sector: giant mushroom caps, tall trunks and leafy crowns
           if (kind < 0.45) addBuilding(parent, new THREE.SphereGeometry(Math.max(w, d) * 0.85, 10, 5, 0, Math.PI * 2, 0, Math.PI / 2), x, h * 0.95, z, 0);
           else if (kind < 0.8) addBuilding(parent, new THREE.IcosahedronGeometry(Math.max(w, d) * 0.7, 0), x, h + Math.max(w, d) * 0.45, z, ry);
+        } else if (style === 8) {
+          // molten foundry: smokestacks, blast-furnace drums and slag cones
+          if (kind < 0.4) addBuilding(parent, new THREE.CylinderGeometry(w * 0.22, w * 0.34, h * 1.5, 8), x, h * 0.75, z, 0);
+          else if (kind < 0.7) addBuilding(parent, new THREE.CylinderGeometry(w * 0.5, w * 0.55, h * 0.5, 10), x, h * 0.3, z, 0);
+          else if (kind < 0.9) addBuilding(parent, new THREE.ConeGeometry(Math.max(w, d) * 0.55, h * 0.8, 6), x, h + h * 0.4, z, ry);
+        } else if (style === 9) {
+          // storm array: cloud-puff domes, ring decks on pylons and lightning-rod spires
+          if (kind < 0.4) addBuilding(parent, new THREE.SphereGeometry(Math.max(w, d) * 0.7, 10, 6), x, h + Math.max(w, d) * 0.4, z, 0);
+          else if (kind < 0.7) addBuilding(parent, new THREE.TorusGeometry(Math.max(w, d) * 0.6, Math.max(w, d) * 0.12, 6, 14), x, h * 1.1, z, ry);
+          else if (kind < 0.9) addBuilding(parent, new THREE.ConeGeometry(w * 0.18, h * 1.6, 5), x, h * 0.8, z, 0);
+        } else if (style === 10) {
+          // neon district: slab towers, round data pylons and antenna spires
+          if (kind < 0.45) addBuilding(parent, new THREE.BoxGeometry(w * 0.8, h * 1.7, d * 0.8), x, h * 0.85, z, ry);
+          else if (kind < 0.75) addBuilding(parent, new THREE.CylinderGeometry(w * 0.3, w * 0.36, h * 1.4, 8), x, h * 0.7, z, 0);
+          else if (kind < 0.92) addBuilding(parent, new THREE.ConeGeometry(w * 0.16, h * 1.9, 4), x, h * 0.95, z, ry);
         } else {
           // research: domes and silos
           if (kind < 0.4) addBuilding(parent, new THREE.SphereGeometry(Math.min(w, d) * 0.55, 8, 4, 0, Math.PI * 2, 0, Math.PI / 2), x, h, z, 0);

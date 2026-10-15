@@ -37,6 +37,9 @@ import { createRig, animateEnemy, animateBossMotion, EnemyRig } from '../utils/e
 import { buildEliteEnemy, isEliteType } from '../utils/eliteEnemyModels';
 import { buildApexEnemy, isApexType } from '../utils/apexEnemyModels';
 import { buildBloomEnemy, isBloomType } from '../utils/bloomEnemyModels';
+import { buildMagmaEnemy, isMagmaType } from '../utils/magmaEnemyModels';
+import { buildStormEnemy, isStormType } from '../utils/stormEnemyModels';
+import { buildNeonEnemy, isNeonType } from '../utils/neonEnemyModels';
 import { buildIceEnemy, isIceType } from '../utils/iceEnemyModels';
 import { updateApexEnemy, isApexCategory, apexDamageGate, apexOnDeath } from '../utils/apexEnemyAI';
 import { CombatHazards, HurtFn } from '../utils/combatHazards';
@@ -99,6 +102,9 @@ const ENEMY_BASE_CATEGORY: Record<string, EnemyCategory> = {
   boss_warden: 'boss',
   boss_frost: 'boss',
   boss_myco: 'boss',
+  boss_magma: 'boss',
+  boss_storm: 'boss',
+  boss_neon: 'boss',
   // MAP 7 (OVERGROWN SECTOR): plant units borrow the AI of a base category
   bramble: 'hound',
   mushling: 'hound',
@@ -111,6 +117,24 @@ const ENEMY_BASE_CATEGORY: Record<string, EnemyCategory> = {
   flurry: 'drone',
   yeti: 'golem',
   shard: 'sentry',
+  // MAP 8 (MOLTEN FOUNDRY): magma units
+  embercur: 'hound',
+  cinderwisp: 'drone',
+  lavablade: 'stalker',
+  crucible: 'sentry',
+  slaggolem: 'golem',
+  // MAP 9 (STORM ARRAY): storm units
+  cumulus: 'drone',
+  galehound: 'hound',
+  tempest: 'stalker',
+  stormrod: 'sentry',
+  nimbusgolem: 'golem',
+  // MAP 10 (NEON DISTRICT): neon units
+  glitchling: 'drone',
+  neonhound: 'hound',
+  cipher: 'stalker',
+  signaltower: 'sentry',
+  mainframe: 'golem',
 };
 const baseCategoryOf = (typeId: string): EnemyCategory =>
   ENEMY_BASE_CATEGORY[typeId] ?? (typeId as EnemyCategory);
@@ -579,7 +603,7 @@ export interface StageEnvironmentTheme {
   nameJa: string;
   subName: string;
   scenery: SceneryId;
-  style: 'apartments' | 'sanctuary' | 'foundry' | 'cathedral' | 'spire' | 'dock' | 'monolith' | 'omega' | 'abyss' | 'relic' | 'cryo' | 'overgrow';
+  style: 'apartments' | 'sanctuary' | 'foundry' | 'cathedral' | 'spire' | 'dock' | 'monolith' | 'omega' | 'abyss' | 'relic' | 'cryo' | 'overgrow' | 'molten' | 'storm' | 'neon';
 }
 
 export function getStageTheme(missionId: string): StageEnvironmentTheme {
@@ -1172,6 +1196,261 @@ export function getStageTheme(missionId: string): StageEnvironmentTheme {
         scenery: 'mycothrone',
         style: 'overgrow',
       };
+    // ================= MAP 8: MOLTEN FOUNDRY =================
+    case 'm29_ashfall':
+      return {
+        floorRoughness: 0.8,
+        floorMetalness: 0.1,
+        gridMain: 0xf97316,
+        gridSub: 0xfdba74,
+        accentColor: 0xf97316,
+        nameJa: '灰降る外縁の突破',
+        subName: 'ASHFALL RIM // SECTOR 50',
+        scenery: 'ashfall',
+        style: 'molten',
+      };
+    case 'm29b_smeltery':
+      return {
+        floorRoughness: 0.5,
+        floorMetalness: 0.35,
+        gridMain: 0xfb923c,
+        gridSub: 0xfde68a,
+        accentColor: 0xfb923c,
+        nameJa: '製錬所跡の制圧',
+        subName: 'SMELTERY // SECTOR 51',
+        scenery: 'smeltery',
+        style: 'molten',
+      };
+    case 'm30_lavafalls':
+      return {
+        floorRoughness: 0.7,
+        floorMetalness: 0.15,
+        gridMain: 0xef4444,
+        gridSub: 0xfdba74,
+        accentColor: 0xef4444,
+        nameJa: '溶岩滝の渓谷の探索',
+        subName: 'LAVA FALLS // SECTOR 52',
+        scenery: 'lavafalls',
+        style: 'molten',
+      };
+    case 'm30b_slagyard':
+      return {
+        floorRoughness: 0.75,
+        floorMetalness: 0.2,
+        gridMain: 0xf59e0b,
+        gridSub: 0xfed7aa,
+        accentColor: 0xf59e0b,
+        nameJa: 'スラグ廃棄場の防衛',
+        subName: 'SLAG YARD // SECTOR 53',
+        scenery: 'slagyard',
+        style: 'molten',
+      };
+    case 'm31_furnace':
+      return {
+        floorRoughness: 0.45,
+        floorMetalness: 0.4,
+        gridMain: 0xf97316,
+        gridSub: 0xfde68a,
+        accentColor: 0xf97316,
+        nameJa: '大炉心室の攻略',
+        subName: 'GREAT FURNACE // SECTOR 54',
+        scenery: 'furnace',
+        style: 'molten',
+      };
+    case 'm31b_forgehall':
+      return {
+        floorRoughness: 0.5,
+        floorMetalness: 0.35,
+        gridMain: 0xfbbf24,
+        gridSub: 0xfb923c,
+        accentColor: 0xfbbf24,
+        nameJa: '鍛造ホールの突破',
+        subName: 'FORGE HALL // SECTOR 55',
+        scenery: 'forgehall',
+        style: 'molten',
+      };
+    case 'm32_magma_boss':
+      return {
+        floorRoughness: 0.5,
+        floorMetalness: 0.3,
+        gridMain: 0xff6a1a,
+        gridSub: 0xffc15a,
+        accentColor: 0xff6a1a,
+        nameJa: '炉心の間：マグマコアユニット',
+        subName: 'MAGMA CORE CHAMBER // SECTOR 56 [MAP 8 BOSS]',
+        scenery: 'magmacore',
+        style: 'molten',
+      };
+    // ================= MAP 9: STORM ARRAY =================
+    case 'm33_stormfront':
+      return {
+        floorRoughness: 0.5,
+        floorMetalness: 0.25,
+        gridMain: 0x60a5fa,
+        gridSub: 0xbfdbfe,
+        accentColor: 0x60a5fa,
+        nameJa: '嵐の前線の突破',
+        subName: 'STORM FRONT // SECTOR 57',
+        scenery: 'stormfront',
+        style: 'storm',
+      };
+    case 'm33b_cloudsea':
+      return {
+        floorRoughness: 0.45,
+        floorMetalness: 0.2,
+        gridMain: 0x93c5fd,
+        gridSub: 0xe0f2fe,
+        accentColor: 0x93c5fd,
+        nameJa: '雲海の浮遊島の制圧',
+        subName: 'CLOUD SEA // SECTOR 58',
+        scenery: 'cloudsea',
+        style: 'storm',
+      };
+    case 'm34_thunderhead':
+      return {
+        floorRoughness: 0.4,
+        floorMetalness: 0.3,
+        gridMain: 0x818cf8,
+        gridSub: 0x7dd3fc,
+        accentColor: 0x818cf8,
+        nameJa: '積乱雲の内部の探索',
+        subName: 'THUNDERHEAD // SECTOR 59',
+        scenery: 'thunderhead',
+        style: 'storm',
+      };
+    case 'm34b_rodfield':
+      return {
+        floorRoughness: 0.5,
+        floorMetalness: 0.3,
+        gridMain: 0x38bdf8,
+        gridSub: 0xbae6fd,
+        accentColor: 0x38bdf8,
+        nameJa: '避雷塔の林の防衛',
+        subName: 'LIGHTNING RODS // SECTOR 60',
+        scenery: 'rodfield',
+        style: 'storm',
+      };
+    case 'm35_eyewall':
+      return {
+        floorRoughness: 0.45,
+        floorMetalness: 0.25,
+        gridMain: 0x7dd3fc,
+        gridSub: 0xe0f2fe,
+        accentColor: 0x7dd3fc,
+        nameJa: '台風の眼壁の攻略',
+        subName: 'EYEWALL // SECTOR 61',
+        scenery: 'eyewall',
+        style: 'storm',
+      };
+    case 'm35b_arraydeck':
+      return {
+        floorRoughness: 0.35,
+        floorMetalness: 0.4,
+        gridMain: 0x38bdf8,
+        gridSub: 0xa5b4fc,
+        accentColor: 0x38bdf8,
+        nameJa: '観測アレイ甲板の突破',
+        subName: 'ARRAY DECK // SECTOR 62',
+        scenery: 'arraydeck',
+        style: 'storm',
+      };
+    case 'm36_storm_boss':
+      return {
+        floorRoughness: 0.35,
+        floorMetalness: 0.35,
+        gridMain: 0x3b82f6,
+        gridSub: 0xbae6fd,
+        accentColor: 0x3b82f6,
+        nameJa: '嵐の中枢：ストームコア・レグナ',
+        subName: 'STORM CORE CHAMBER // SECTOR 63 [MAP 9 BOSS]',
+        scenery: 'stormcore',
+        style: 'storm',
+      };
+    // ================= MAP 10: NEON DISTRICT =================
+    case 'm37_neonavenue':
+      return {
+        floorRoughness: 0.3,
+        floorMetalness: 0.35,
+        gridMain: 0xe879f9,
+        gridSub: 0x67e8f9,
+        accentColor: 0xe879f9,
+        nameJa: 'ネオン大通りの突破',
+        subName: 'NEON AVENUE // SECTOR 64',
+        scenery: 'neonavenue',
+        style: 'neon',
+      };
+    case 'm37b_arcade':
+      return {
+        floorRoughness: 0.3,
+        floorMetalness: 0.4,
+        gridMain: 0x67e8f9,
+        gridSub: 0xe879f9,
+        accentColor: 0x67e8f9,
+        nameJa: '電脳アーケードの制圧',
+        subName: 'CYBER ARCADE // SECTOR 65',
+        scenery: 'neonarcade',
+        style: 'neon',
+      };
+    case 'm38_datastream':
+      return {
+        floorRoughness: 0.35,
+        floorMetalness: 0.35,
+        gridMain: 0x4ade80,
+        gridSub: 0x67e8f9,
+        accentColor: 0x4ade80,
+        nameJa: 'データストリームの探索',
+        subName: 'DATA STREAM // SECTOR 66',
+        scenery: 'datastream',
+        style: 'neon',
+      };
+    case 'm38b_billboard':
+      return {
+        floorRoughness: 0.3,
+        floorMetalness: 0.35,
+        gridMain: 0xf472b6,
+        gridSub: 0xa78bfa,
+        accentColor: 0xf472b6,
+        nameJa: '巨大広告塔の防衛',
+        subName: 'BILLBOARD SPIRE // SECTOR 67',
+        scenery: 'billboardspire',
+        style: 'neon',
+      };
+    case 'm39_serverblock':
+      return {
+        floorRoughness: 0.3,
+        floorMetalness: 0.45,
+        gridMain: 0x38bdf8,
+        gridSub: 0xe879f9,
+        accentColor: 0x38bdf8,
+        nameJa: 'サーバー街区の攻略',
+        subName: 'SERVER BLOCK // SECTOR 68',
+        scenery: 'serverblock',
+        style: 'neon',
+      };
+    case 'm39b_skyway':
+      return {
+        floorRoughness: 0.25,
+        floorMetalness: 0.4,
+        gridMain: 0xe879f9,
+        gridSub: 0xa78bfa,
+        accentColor: 0xe879f9,
+        nameJa: '天空回廊の突破',
+        subName: 'SKYWAY // SECTOR 69',
+        scenery: 'skyway',
+        style: 'neon',
+      };
+    case 'm40_neon_boss':
+      return {
+        floorRoughness: 0.25,
+        floorMetalness: 0.4,
+        gridMain: 0xd946ef,
+        gridSub: 0x67e8f9,
+        accentColor: 0xd946ef,
+        nameJa: '電脳の中枢：ネオン・メデューサ',
+        subName: 'NEON CORE CHAMBER // SECTOR 70 [MAP 10 BOSS]',
+        scenery: 'neoncore',
+        style: 'neon',
+      };
 
     case 'm12_omega_boss':
     default:
@@ -1703,6 +1982,15 @@ const STAGE_DIFFICULTY: Record<string, number> = {
   // MAP 7: Overgrown Sector
   m25_canopy: 7.30, m25b_greenhouse: 7.47, m26_mycelium: 7.64, m26b_swamp: 7.81,
   m27_rootworks: 7.98, m27b_bloom: 8.15, m28_myco_boss: 8.40,
+  // MAP 8: Molten Foundry
+  m29_ashfall: 8.65, m29b_smeltery: 8.83, m30_lavafalls: 9.01, m30b_slagyard: 9.19,
+  m31_furnace: 9.37, m31b_forgehall: 9.55, m32_magma_boss: 9.80,
+  // MAP 9: Storm Array
+  m33_stormfront: 10.05, m33b_cloudsea: 10.23, m34_thunderhead: 10.41, m34b_rodfield: 10.59,
+  m35_eyewall: 10.77, m35b_arraydeck: 10.95, m36_storm_boss: 11.20,
+  // MAP 10: Neon District
+  m37_neonavenue: 11.45, m37b_arcade: 11.63, m38_datastream: 11.81, m38b_billboard: 11.99,
+  m39_serverblock: 12.17, m39b_skyway: 12.35, m40_neon_boss: 12.60,
 };
 
 /** ハードモード: 同じMAP内の同じ位置のステージから3MAP(=21ステージ)先の難易度になる */
@@ -1742,6 +2030,12 @@ export function buildEnemyModel(type: string, group: THREE.Group): { hp: number;
   if (apex) return apex;
   const bloom = buildBloomEnemy(type, group);
   if (bloom) return bloom;
+  const magma = buildMagmaEnemy(type, group);
+  if (magma) return magma;
+  const storm = buildStormEnemy(type, group);
+  if (storm) return storm;
+  const neon = buildNeonEnemy(type, group);
+  if (neon) return neon;
   const ice = buildIceEnemy(type, group);
   if (ice) return ice;
   const std = (color: number, metalness = 0.82, roughness = 0.38) => new THREE.MeshStandardMaterial({ color, metalness, roughness });
@@ -2295,7 +2589,7 @@ function createEnemyInstance(
   const { hp, speed, damage } = buildEnemyModel(enDef.enemyTypeId, group);
 
   // Apply archetype-specific procedural surface textures to solid enemy armor (elites carry their own).
-  const elite = isEliteType(enDef.enemyTypeId) || isApexType(enDef.enemyTypeId) || isBloomType(enDef.enemyTypeId) || isIceType(enDef.enemyTypeId);
+  const elite = isEliteType(enDef.enemyTypeId) || isApexType(enDef.enemyTypeId) || isBloomType(enDef.enemyTypeId) || isIceType(enDef.enemyTypeId) || isMagmaType(enDef.enemyTypeId) || isStormType(enDef.enemyTypeId) || isNeonType(enDef.enemyTypeId);
   const enemyTexture = elite || isBossDef ? null : createEnemySurfaceTexture(enDef.enemyTypeId);
   if (enemyTexture) group.traverse((obj) => {
     if (!(obj instanceof THREE.Mesh)) return;

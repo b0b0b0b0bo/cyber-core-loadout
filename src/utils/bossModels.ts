@@ -1,3 +1,4 @@
+import { digitTexture, digitMaterial } from './neonFx';
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 
@@ -12,7 +13,7 @@ import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeom
  * enrage colour shift per phase.
  */
 
-export type BossKind = 'golgotha' | 'golem' | 'titan' | 'kraken' | 'warden' | 'frost' | 'myco';
+export type BossKind = 'golgotha' | 'golem' | 'titan' | 'kraken' | 'warden' | 'frost' | 'myco' | 'magma' | 'storm' | 'neon';
 export const BOSS_SCALE = 1.8;
 
 export const bossKindOf = (typeId: string): BossKind | null =>
@@ -23,6 +24,9 @@ export const bossKindOf = (typeId: string): BossKind | null =>
     : typeId === 'boss_warden' ? 'warden'
     : typeId === 'boss_frost' ? 'frost'
     : typeId === 'boss_myco' ? 'myco'
+    : typeId === 'boss_magma' ? 'magma'
+    : typeId === 'boss_storm' ? 'storm'
+    : typeId === 'boss_neon' ? 'neon'
     : null;
 
 export interface BossStats {
@@ -39,6 +43,9 @@ export const BOSS_STATS: Record<BossKind, BossStats> = {
   warden: { hp: 7000, speed: 3.9, damage: 70 },
   frost: { hp: 7600, speed: 4.2, damage: 72 },
   myco: { hp: 8200, speed: 3.9, damage: 74 },
+  magma: { hp: 8800, speed: 3.8, damage: 78 },
+  storm: { hp: 9400, speed: 3.6, damage: 82 },
+  neon: { hp: 10000, speed: 3.7, damage: 86 },
 };
 
 interface BossRefs {
@@ -1188,6 +1195,523 @@ function buildMyco(rig: THREE.Group): BossRefs {
   return k.refs;
 }
 
+// ───────────────────────── MAGMA CORE UNIT (molten foundry core chamber) ─────────────────────────
+// Four-legged magma walker: cooled-basalt armour split by glowing seams, claw-blade legs that drip lava,
+// a ring-shaped upper deck and a huge molten core in a ring housing on the chest (the muzzle of its magma cannon).
+function buildMagma(rig: THREE.Group): BossRefs {
+  const k = createKit('magma', rig, 0xffe9a0);
+  const { armor, solid, glow, halo, rbox, cyl, sph, cone, torus, mk, grp, V, strut, blade, spin, orbit, pulse, sway } = k;
+  const texBasalt = panelTexture('#4a3a36', '#ff7a1a', 5);
+  const texPlate = panelTexture('#7a6a64', '#d8c4b4', 4);
+  const texDark = panelTexture('#352a27', '#7a5a4c', 5);
+  const basalt = armor(0x6a5650, texBasalt, 0.35, 0.6);
+  const plate = armor(0x8a7468, texPlate, 0.45, 0.5);
+  const dark = armor(0x2a201e, texDark, 0.5, 0.5);
+  const steel = solid(0x7c726c, 0.85, 0.3);
+  const black = solid(0x050302, 0.4, 0.6);
+  const lava = glow(0xff4a0a, true);
+  const lavaHot = glow(0xff8a1a, true);
+  const lavaCore = glow(0xffd27a);
+  const blue = glow(0x7dd3fc);
+  const orient = (o: THREE.Object3D, dir: THREE.Vector3) => o.quaternion.setFromUnitVectors(V(0, 1, 0), dir.clone().normalize());
+  /** Cone with its base at a and its tip at b. */
+  const spike = (parent: THREE.Object3D, a: THREE.Vector3, b: THREE.Vector3, r: number, mat: THREE.Material, seg = 5) => {
+    const dir = new THREE.Vector3().subVectors(b, a);
+    const m = mk(parent, cone(r, dir.length(), seg), mat);
+    m.position.copy(a).addScaledVector(dir, 0.5);
+    orient(m, dir);
+    return m;
+  };
+
+  // ── four claw legs: pivot at the hip, extend along local -Z (angle a = from forward toward +X) ──
+  const leg = (a: number, hipR: number, len: number, ph: number) => {
+    const root = grp(rig, Math.sin(a) * hipR, 3.6, -Math.cos(a) * hipR, 0, -a, 0);
+    const lift = grp(root);
+    k.refs.lifts.push({ obj: lift, idx: k.refs.lifts.length, front: Math.abs(a) < Math.PI / 2, side: Math.sign(a) || 1 });
+    const hip = V(0, 0, 0);
+    const knee = V(0, 1.5 * len, -2.0 * len);
+    const foot = V(0, -3.55, -3.7 * len);
+    // hip joint: dark drum with glowing rims
+    mk(lift, cyl(0.85, 0.85, 0.9, 18), dark, 0, 0, 0, 0, 0, Math.PI / 2);
+    for (const sx of [-1, 1]) mk(lift, torus(0.62, 0.06, 24, 8), lava, sx * 0.48, 0, 0, 0, Math.PI / 2, 0);
+    // upper segment: thick strut with a basalt armour slab on top
+    strut(lift, hip, knee, 0.5, 0.4, dark);
+    const up = knee.clone().sub(hip);
+    const slab = mk(lift, rbox(1.2, up.length() * 0.9, 0.5, 0.12), basalt, 0, 0, 0);
+    slab.position.copy(hip).addScaledVector(up, 0.5).add(V(0, 0.42, 0.1));
+    orient(slab, up);
+    // knee joint with molten ring
+    mk(lift, sph(0.72, 14), dark, knee.x, knee.y, knee.z);
+    for (const sx of [-1, 1]) mk(lift, torus(0.55, 0.07, 22, 8), lavaHot, knee.x + sx * 0.62, knee.y, knee.z, 0, Math.PI / 2, 0);
+    // lower segment: a long pointed claw plate whose centre seam glows, with lava creeping down it
+    const ld = foot.clone().sub(knee).normalize();
+    const tipEnd = foot.clone().addScaledVector(ld, 0.35);
+    const clawLen = knee.distanceTo(tipEnd);
+    const claw = mk(lift, blade(clawLen, 1.9, 0.62), plate, knee.x, knee.y, knee.z);
+    orient(claw, ld);
+    const seam = mk(lift, blade(clawLen * 0.94, 0.3, 0.7), lavaHot, knee.x, knee.y, knee.z);
+    orient(seam, ld);
+    for (const sx of [-1, 1]) {
+      const edge = mk(lift, blade(clawLen * 0.96, 0.5, 0.5), basalt, knee.x + sx * 0.55, knee.y, knee.z);
+      orient(edge, ld);
+    }
+    // glowing veins crossing the claw
+    for (let i = 0; i < 3; i++) {
+      const p = knee.clone().addScaledVector(ld, clawLen * (0.25 + i * 0.22));
+      const v = mk(lift, new THREE.BoxGeometry(0.9 - i * 0.2, 0.05, 0.06), lava, p.x, p.y, p.z + 0.31);
+      v.quaternion.copy(claw.quaternion);
+    }
+    // lava dripping off the tip
+    mk(lift, cyl(0.05, 0.03, 1.4, 6), lava, foot.x, foot.y + 0.1, foot.z, 0, 0, 0);
+    sway(root, 'y', 0.03, 0.9, ph);
+  };
+  const D = Math.PI / 180;
+  leg(-42 * D, 1.9, 0.95, 0.0); leg(42 * D, 1.9, 0.95, 1.6);
+  leg(-140 * D, 1.9, 1.0, 3.1); leg(140 * D, 1.9, 1.0, 4.7);
+
+  // ── chassis ──
+  mk(rig, rbox(4.6, 1.5, 5.0, 0.4), dark, 0, 3.7, 0.1);
+  mk(rig, rbox(3.4, 0.7, 3.8, 0.25), black, 0, 2.95, 0.1);                       // underbelly
+  // molten underside: glowing plate + two lava streams falling to the floor
+  mk(rig, rbox(2.6, 0.12, 2.8, 0.05), lava, 0, 2.55, 0.1);
+  for (const s of [-1, 1]) {
+    mk(rig, cyl(0.2, 0.28, 2.4, 10), lava, s * 0.7, 1.35, -0.2);
+    mk(rig, cyl(0.36, 0.5, 2.4, 10), halo(0xff7a1a, 0.22, true), s * 0.7, 1.35, -0.2);
+    mk(rig, new THREE.CircleGeometry(1.1, 22), halo(0xff8a2a, 0.5, true), s * 0.7, 0.1, -0.2, -Math.PI / 2, 0, 0);
+  }
+  // upper deck: a wide steel ring with a glowing inner lip, plus basalt shell plates
+  mk(rig, torus(3.7, 0.5, 52, 12), steel, 0, 4.55, 0.1, Math.PI / 2, 0, 0);
+  mk(rig, torus(3.55, 0.09, 52, 8), lava, 0, 4.85, 0.1, Math.PI / 2, 0, 0);
+  mk(rig, torus(3.2, 0.05, 52, 8), lavaHot, 0, 4.55, 0.1, Math.PI / 2, 0, 0);
+  mk(rig, rbox(4.4, 0.5, 4.6, 0.25), basalt, 0, 4.15, 0.1);
+  for (let i = 0; i < 12; i++) { // riveted plates around the ring
+    const a = (i / 12) * Math.PI * 2;
+    mk(rig, rbox(1.3, 0.32, 0.55, 0.1), plate, Math.cos(a) * 3.7, 4.78, 0.1 + Math.sin(a) * 3.7, 0, -a + Math.PI / 2, 0);
+  }
+  // flank armour + blue status lamps
+  for (const s of [-1, 1]) {
+    mk(rig, rbox(0.6, 1.3, 3.4, 0.16), plate, s * 2.45, 3.8, 0.1, 0, 0, s * -0.12);
+    mk(rig, new THREE.BoxGeometry(0.05, 1.0, 0.06), lava, s * 2.78, 3.8, -1.0, 0, 0, s * -0.12);
+    mk(rig, new THREE.BoxGeometry(0.05, 1.0, 0.06), lava, s * 2.78, 3.8, 1.0, 0, 0, s * -0.12);
+  }
+  mk(rig, new THREE.BoxGeometry(0.12, 0.34, 0.12), blue, -2.2, 4.1, -1.8);
+
+  // ── the magma core: ring-housed molten sphere on the chest ──
+  const coreRig = grp(rig, 0, 3.75, -2.55);
+  mk(coreRig, rbox(3.3, 3.3, 0.6, 0.3), black, 0, 0, 0.5);
+  mk(coreRig, cyl(1.75, 1.85, 0.7, 36), steel, 0, 0, 0.1, Math.PI / 2, 0, 0);
+  const ringOuter = mk(coreRig, torus(1.7, 0.16, 48, 10), plate, 0, 0, -0.2);
+  const ringMid = mk(coreRig, torus(1.45, 0.07, 48, 8), lavaHot, 0, 0, -0.3);
+  const ringInner = mk(coreRig, torus(1.2, 0.1, 48, 8), steel, 0, 0, -0.35);
+  spin(ringOuter, 'z', 0.18); spin(ringMid, 'z', -0.5); spin(ringInner, 'z', 0.9);
+  for (let i = 0; i < 12; i++) { // ring segments with glowing slits
+    const a = (i / 12) * Math.PI * 2;
+    mk(coreRig, rbox(0.34, 0.5, 0.3, 0.06), i % 2 ? dark : plate, Math.cos(a) * 1.72, Math.sin(a) * 1.72, -0.15, 0, 0, a);
+    mk(coreRig, new THREE.BoxGeometry(0.05, 0.28, 0.05), lavaHot, Math.cos(a) * 1.72, Math.sin(a) * 1.72, -0.34, 0, 0, a);
+  }
+  const orb = mk(coreRig, sph(1.12, 28), lava, 0, 0, -0.45);
+  const orbHot = mk(coreRig, sph(0.8, 24), lavaHot, 0, 0, -0.5);
+  const orbCore = mk(coreRig, sph(0.42, 18), lavaCore, 0, 0, -0.55);
+  const orbHalo = mk(coreRig, sph(1.7, 20), halo(0xff7a1a, 0.26, true), 0, 0, -0.45);
+  const orbHalo2 = mk(coreRig, sph(2.3, 20), halo(0xffa94d, 0.12, true), 0, 0, -0.45);
+  pulse(orbHot, 0.1); pulse(orbCore, 0.18); pulse(orbHalo, 0.08); pulse(orbHalo2, 0.12);
+  void orb;
+  // muzzle lip: the cannon's barrel-bell in front of the sphere, glowing from inside
+  mk(coreRig, torus(1.28, 0.2, 40, 10), steel, 0, 0, -1.0);
+  mk(coreRig, torus(1.12, 0.06, 40, 8), lavaHot, 0, 0, -1.12);
+  for (let i = 0; i < 8; i++) {
+    const a = (i / 8) * Math.PI * 2;
+    spike(coreRig, V(Math.cos(a) * 1.3, Math.sin(a) * 1.3, -1.0), V(Math.cos(a) * 1.5, Math.sin(a) * 1.5, -1.9), 0.13, plate, 4);
+  }
+  // the great arch framing the core (the curved visor over the front)
+  mk(rig, torus(3.2, 0.55, 40, 12, Math.PI), steel, 0, 3.75, -2.3);
+  mk(rig, torus(3.2, 0.1, 40, 8, Math.PI), lava, 0, 3.75, -2.78);
+  mk(rig, torus(2.75, 0.2, 40, 10, Math.PI), plate, 0, 3.75, -2.3);
+
+  // ── towers rising from the deck ──
+  mk(rig, rbox(1.5, 2.6, 1.5, 0.2), basalt, 0, 6.1, 0.3);
+  mk(rig, rbox(1.1, 0.3, 1.1, 0.1), steel, 0, 7.55, 0.3);
+  const vent = mk(rig, cyl(0.38, 0.38, 0.12, 14), lava, 0, 7.72, 0.3);
+  const ventHalo = mk(rig, sph(0.6, 14), halo(0xff7a1a, 0.2, true), 0, 7.85, 0.3);
+  pulse(vent, 0.14); pulse(ventHalo, 0.12);
+  for (const s of [-1, 1]) {
+    mk(rig, rbox(0.95, 1.8, 0.95, 0.16), basalt, s * 1.55, 5.65, 0.7);
+    mk(rig, new THREE.BoxGeometry(0.06, 1.3, 0.06), lava, s * 1.55, 5.65, 0.2);
+    mk(rig, cone(0.32, 0.9, 5), plate, s * 1.55, 6.9, 0.7);
+    mk(rig, new THREE.BoxGeometry(0.05, 1.7, 0.05), lavaHot, s * 0.38, 6.1, -0.46);
+  }
+  mk(rig, cyl(0.04, 0.04, 1.8, 6), steel, 0.6, 8.2, 0.9);
+  mk(rig, sph(0.1, 8), glow(0xff3b2f, true), 0.6, 9.1, 0.9);
+  // lava seams running over the shell
+  for (let i = 0; i < 5; i++) mk(rig, new THREE.BoxGeometry(0.1, 0.05, 1.6 + (i % 2) * 0.8), lava, (i - 2) * 0.8, 4.43, -1.2 + (i % 3) * 0.5);
+
+  // ── rear reactor disc (matches the back view) ──
+  const back = grp(rig, 0, 3.8, 2.75);
+  mk(back, rbox(2.4, 2.4, 0.4, 0.2), black, 0, 0, 0);
+  const rear = mk(back, torus(0.82, 0.07, 32, 8), lava, 0, 0, 0.25);
+  const rear2 = mk(back, torus(0.5, 0.05, 28, 8), lavaHot, 0, 0, 0.27);
+  spin(rear, 'z', 0.6); spin(rear2, 'z', -1.1);
+  const rearCore = mk(back, sph(0.22, 12), lavaCore, 0, 0, 0.3);
+  pulse(rearCore, 0.16);
+  for (let i = 0; i < 6; i++) spike(back, V(Math.cos(i * 1.047) * 1.0, Math.sin(i * 1.047) * 1.0, 0.2), V(Math.cos(i * 1.047) * 1.2, Math.sin(i * 1.047) * 1.2, 0.9), 0.1, plate, 4);
+
+  // ── molten debris and embers orbiting the legs ──
+  for (let i = 0; i < 9; i++) {
+    const r = mk(rig, new THREE.DodecahedronGeometry(0.3 + (i % 3) * 0.12, 0), i % 2 ? dark : plate);
+    orbit(r, 5.8 + (i % 3) * 0.7, 1.2 + (i % 4) * 1.1, i * 0.7, 0.35 + i * 0.03, 0.3);
+  }
+  for (let i = 0; i < 14; i++) {
+    const e = mk(rig, sph(0.14 + (i % 3) * 0.05, 8), i % 2 ? lavaHot : lava);
+    orbit(e, 4.8 + (i % 4) * 0.8, 0.8 + (i % 6) * 1.5, i * 0.45, 0.55 + i * 0.03, 0.35);
+  }
+  // heat rings on the floor
+  spin(mk(rig, torus(6.2, 0.07, 64, 6), lava, 0, 0.12, 0, Math.PI / 2, 0, 0), 'z', 0.2);
+  spin(mk(rig, torus(4.6, 0.04, 56, 6), lavaHot, 0, 0.12, 0, Math.PI / 2, 0, 0), 'z', -0.35);
+  return k.refs;
+}
+
+// ───────────────────────── STORM CORE REGNA (storm array core chamber) ─────────────────────────
+// Floating storm fortress: a boiling thundercloud mass ringed by steel decks, a glowing eye-core on the front,
+// a funnel of wind hanging beneath it and eight lance-shaped pods dangling around the rim.
+function buildStorm(rig: THREE.Group): BossRefs {
+  const k = createKit('storm', rig, 0xe0d4ff);
+  const { armor, solid, glow, halo, rbox, cyl, sph, cone, torus, mk, grp, V, spin, orbit, pulse, sway } = k;
+  const texHull = panelTexture('#566480', '#6fb4ff', 5);
+  const texPlate = panelTexture('#7a869c', '#cfe2ff', 4);
+  const texDark = panelTexture('#3a4560', '#4a78b8', 5);
+  const hull = armor(0x6a768c, texHull, 0.45, 0.5);
+  const plate = armor(0x9aa6bc, texPlate, 0.5, 0.45);
+  const dark = armor(0x3a4458, texDark, 0.5, 0.5);
+  const steel = solid(0x9aa8c0, 0.85, 0.28);
+  const black = solid(0x04060c, 0.4, 0.6);
+  const blue = glow(0x38bdf8, true);
+  const blueHot = glow(0x9bd8ff, true);
+  const white = glow(0xf0f9ff);
+  const cloudMats = [
+    new THREE.MeshStandardMaterial({ color: 0x8a92a8, roughness: 1, metalness: 0, emissive: 0x2a3456, emissiveIntensity: 0.6, flatShading: true }),
+    new THREE.MeshStandardMaterial({ color: 0x4e576e, roughness: 1, metalness: 0, emissive: 0x182040, emissiveIntensity: 0.6, flatShading: true }),
+    new THREE.MeshStandardMaterial({ color: 0xc2c9de, roughness: 1, metalness: 0, emissive: 0x3a4670, emissiveIntensity: 0.5, flatShading: true }),
+  ];
+  const orient = (o: THREE.Object3D, dir: THREE.Vector3) => o.quaternion.setFromUnitVectors(V(0, 1, 0), dir.clone().normalize());
+  const spike = (parent: THREE.Object3D, a: THREE.Vector3, b: THREE.Vector3, r: number, mat: THREE.Material, seg = 5) => {
+    const dir = new THREE.Vector3().subVectors(b, a);
+    const m = mk(parent, cone(r, dir.length(), seg), mat);
+    m.position.copy(a).addScaledVector(dir, 0.5);
+    orient(m, dir);
+    return m;
+  };
+  /** Glowing zig-zag lightning tube from a to b. */
+  const bolt = (parent: THREE.Object3D, mat: THREE.Material, a: THREE.Vector3, b: THREE.Vector3, jag: number, r = 0.06, seed = 0) => {
+    const n = 8;
+    const d = b.clone().sub(a);
+    const pts: THREE.Vector3[] = [];
+    for (let i = 0; i <= n; i++) {
+      const f = i / n, env = Math.sin(Math.PI * f) * jag;
+      pts.push(a.clone().addScaledVector(d, f).add(V((((i * 7 + seed) % 5) - 2) * 0.5 * env, (((i * 3 + seed) % 4) - 1.5) * 0.3 * env, (((i * 5 + seed) % 5) - 2) * 0.5 * env)));
+    }
+    return mk(parent, new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts, false, 'catmullrom', 0.2), 24, r, 5, false), mat);
+  };
+
+  // ── thundercloud mass (a fat cluster of lumpy cloud that slowly boils) ──
+  const clouds = grp(rig, 0, 4.1, 0);
+  for (let i = 0; i < 34; i++) {
+    const a = i * 2.399, ph = ((i * 37) % 17) / 17;
+    const rr = 1.3 + ((i * 13) % 7) * 0.22;
+    const dist = (i < 6 ? 0.4 : 1.6 + (i % 5) * 0.5) * (1 + ph * 0.2);
+    const lump = new THREE.Group();
+    lump.position.set(Math.cos(a) * dist, -0.6 + ph * 2.4 + (i % 3) * 0.2, Math.sin(a) * dist * 0.95);
+    const ball = new THREE.Mesh(new THREE.IcosahedronGeometry(rr, 1), cloudMats[i % 3]);
+    ball.scale.y = 0.82;
+    lump.add(ball);
+    clouds.add(lump);
+    sway(lump, 'y', 0.12, 0.4 + (i % 4) * 0.1, i);
+  }
+  // inner glow lighting the cloud from within, plus crawling lightning
+  const inner = mk(clouds, sph(2.6, 20), halo(0x3b9eff, 0.2, true), 0, -0.2, 0);
+  pulse(inner, 0.12);
+  for (let i = 0; i < 9; i++) {
+    const a = i * 0.7;
+    const b = bolt(clouds, i % 2 ? blueHot : blue, V(Math.cos(a) * 0.6, 0.2, Math.sin(a) * 0.6), V(Math.cos(a + 0.5) * 4.3, 0.8 + (i % 3) * 0.6 - 0.6, Math.sin(a + 0.5) * 4.3), 1.1, 0.045, i);
+    sway(b, 'y', 0.2, 0.9, i);
+  }
+
+  // ── ring decks above (concentric rotating rings, spires, an antenna crown) ──
+  const decks = grp(rig, 0, 0, 0);
+  const deckRing = (R: number, y: number, tube: number, speed: number, bladeN: number) => {
+    const g = grp(decks, 0, y, 0);
+    const ring = mk(g, torus(R, tube, 56, 12), hull, 0, 0, 0, Math.PI / 2, 0, 0);
+    mk(g, torus(R - tube * 0.2, tube * 0.28, 56, 8), blue, 0, tube * 0.7, 0, Math.PI / 2, 0, 0);
+    mk(g, torus(R + tube * 0.3, tube * 0.18, 56, 8), blueHot, 0, -tube * 0.4, 0, Math.PI / 2, 0, 0);
+    for (let i = 0; i < bladeN; i++) {
+      const a = (i / bladeN) * Math.PI * 2;
+      mk(g, rbox(R * 0.3, tube * 0.9, tube * 1.6, 0.1), i % 2 ? plate : dark, Math.cos(a) * R, tube * 0.55, Math.sin(a) * R, 0, -a + Math.PI / 2, 0);
+    }
+    spin(g, 'y', speed);
+    return { g, ring };
+  };
+  deckRing(5.4, 6.0, 0.42, 0.06, 16);
+  deckRing(4.1, 6.9, 0.36, -0.1, 12);
+  const crown = deckRing(2.6, 7.7, 0.3, 0.16, 8);
+  for (let i = 0; i < 4; i++) { // lightning-rod spires on the second deck
+    const a = (i / 4) * Math.PI * 2 + 0.4;
+    spike(decks, V(Math.cos(a) * 4.1, 7.1, Math.sin(a) * 4.1), V(Math.cos(a) * 4.1, 10.2, Math.sin(a) * 4.1), 0.2, plate, 5);
+    mk(decks, sph(0.14, 8), blueHot, Math.cos(a) * 4.1, 10.2, Math.sin(a) * 4.1);
+  }
+  spike(crown.g, V(0, 0.2, 0), V(0, 2.6, 0), 0.34, steel, 6);
+  const crownOrb = mk(crown.g, sph(0.3, 12), white, 0, 2.7, 0);
+  const crownHalo = mk(crown.g, sph(0.9, 12), halo(0x7cc4ff, 0.26, true), 0, 2.7, 0);
+  pulse(crownOrb, 0.18); pulse(crownHalo, 0.12);
+  // overhead core glow: rings seen from above (concentric ring face on the top deck)
+  mk(decks, new THREE.CircleGeometry(2.3, 40), halo(0x38bdf8, 0.28, true), 0, 7.75, 0, -Math.PI / 2, 0, 0);
+
+  // ── the eye: concentric rings and a molten-blue orb on the front of the cloud ──
+  const eye = grp(rig, 0, 3.9, -4.7);
+  mk(eye, rbox(2.6, 2.6, 0.5, 0.25), black, 0, 0, 0.35);
+  const eRing1 = mk(eye, torus(1.15, 0.12, 40, 10), steel, 0, 0, -0.1);
+  const eRing2 = mk(eye, torus(0.88, 0.06, 40, 8), blue, 0, 0, -0.18);
+  const eRing3 = mk(eye, torus(0.62, 0.08, 36, 8), plate, 0, 0, -0.22);
+  spin(eRing1, 'z', 0.25); spin(eRing2, 'z', -0.7); spin(eRing3, 'z', 1.2);
+  for (let i = 0; i < 10; i++) {
+    const a = (i / 10) * Math.PI * 2;
+    mk(eye, rbox(0.2, 0.34, 0.2, 0.05), i % 2 ? dark : plate, Math.cos(a) * 1.16, Math.sin(a) * 1.16, -0.1, 0, 0, a);
+    mk(eye, new THREE.BoxGeometry(0.04, 0.2, 0.04), blueHot, Math.cos(a) * 1.16, Math.sin(a) * 1.16, -0.22, 0, 0, a);
+  }
+  const eyeOrb = mk(eye, sph(0.5, 20), blueHot, 0, 0, -0.3);
+  const eyeCore = mk(eye, sph(0.25, 14), white, 0, 0, -0.38);
+  const eyeHalo = mk(eye, sph(1.3, 18), halo(0x38bdf8, 0.26, true), 0, 0, -0.3);
+  const eyeHalo2 = mk(eye, sph(1.9, 18), halo(0x7cc4ff, 0.12, true), 0, 0, -0.3);
+  pulse(eyeOrb, 0.1); pulse(eyeCore, 0.18); pulse(eyeHalo, 0.1); pulse(eyeHalo2, 0.12);
+
+  // ── funnel beneath: stacked wind rings that spin at different rates, with a lightning column down the middle ──
+  const funnel = grp(rig, 0, 0, 0.2);
+  for (let i = 0; i < 9; i++) {
+    const y = 3.0 - i * 0.32, R = 0.35 + (i < 4 ? 1.6 - i * 0.36 : 0.35 + (8 - i) * 0.08) + (i === 0 ? 0.6 : 0);
+    const r = mk(funnel, torus(R, 0.05 + (i % 2) * 0.03, 40, 6), i % 2 ? blue : blueHot, 0, y, 0, Math.PI / 2, 0, 0);
+    spin(r, 'z', (i % 2 ? -1 : 1) * (0.8 + i * 0.2));
+  }
+  const wind = new THREE.MeshBasicMaterial({ color: 0x9bd0ff, transparent: true, opacity: 0.16, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+  mk(funnel, new THREE.CylinderGeometry(2.0, 0.25, 3.0, 24, 1, true), wind, 0, 1.55, 0);
+  bolt(funnel, blueHot, V(0, 3.0, 0), V(0, 0.1, 0), 0.5, 0.07, 2);
+  const ground = mk(rig, new THREE.CircleGeometry(1.4, 24), halo(0x7cc4ff, 0.45, true), 0, 0.1, 0.2, -Math.PI / 2, 0, 0);
+  pulse(ground, 0.12);
+
+  // ── eight lance pods hanging around the rim; they lift with the attack cues ──
+  const pod = (a: number, R: number, y: number, len: number, ph: number) => {
+    const root = grp(rig, Math.sin(a) * R, y, -Math.cos(a) * R, 0, -a, 0);
+    const lift = grp(root);
+    k.refs.lifts.push({ obj: lift, idx: k.refs.lifts.length, front: Math.abs(a) < Math.PI / 2, side: Math.sign(a) || 1 });
+    // pylon from the deck down to the pod
+    mk(lift, rbox(0.7, 1.4, 0.7, 0.15), dark, 0, 1.0, 0);
+    mk(lift, sph(0.5, 12), hull, 0, 0.25, 0);
+    mk(lift, torus(0.42, 0.05, 20, 8), blue, 0, 0.25, 0, Math.PI / 2, 0, 0);
+    // lance body: hexagonal taper pointing straight down, with a glowing spine and armour fins
+    const lance = mk(lift, new THREE.CylinderGeometry(1.0, 0.08, len, 6), plate, 0, -len / 2 + 0.2, 0);
+    mk(lift, new THREE.BoxGeometry(0.12, len * 0.86, 0.12), blueHot, 0, -len / 2 + 0.1, -0.8);
+    for (const sx of [-1, 1]) mk(lift, rbox(0.2, len * 0.6, 0.9, 0.06), hull, sx * 0.85, -len * 0.3, 0.05);
+    spike(lift, V(0, -len + 0.25, 0), V(0, -len - 0.5, 0), 0.07, blueHot, 5);
+    void lance;
+    sway(root, 'z', 0.04, 0.8, ph);
+  };
+  for (let i = 0; i < 8; i++) {
+    const a = (i / 8) * Math.PI * 2 + 0.2;
+    pod(a, 4.5 + (i % 2) * 0.5, 4.7, 3.4 + (i % 2) * 1.3, i * 0.8);
+  }
+
+  // ── satellite discs and debris orbiting the fortress ──
+  for (let i = 0; i < 5; i++) {
+    const g = new THREE.Group();
+    mk(g, cyl(1.0, 1.1, 0.3, 24), hull);
+    mk(g, torus(0.82, 0.05, 28, 8), blue, 0, 0.17, 0, Math.PI / 2, 0, 0);
+    mk(g, sph(0.22, 10), blueHot, 0, 0.3, 0);
+    rig.add(g);
+    orbit(g, 7.6 + (i % 2) * 1.0, 3.0 + (i % 3) * 1.4, i * 1.26, 0.2 + i * 0.02, 0.5);
+  }
+  for (let i = 0; i < 12; i++) {
+    const r = mk(rig, new THREE.DodecahedronGeometry(0.2 + (i % 3) * 0.12, 0), i % 2 ? dark : plate);
+    orbit(r, 6.2 + (i % 4) * 0.8, 0.8 + (i % 6) * 1.4, i * 0.55, 0.45 + i * 0.03, 0.35);
+  }
+  // rain-like sparks falling around
+  for (let i = 0; i < 10; i++) {
+    const s = mk(rig, sph(0.1, 6), i % 2 ? blueHot : blue);
+    orbit(s, 4.0 + (i % 4) * 0.9, 1.0 + (i % 5) * 1.6, i * 0.63, 0.7 + i * 0.04, 0.5);
+  }
+  // charge rings on the floor
+  spin(mk(rig, torus(6.6, 0.07, 64, 6), blue, 0, 0.12, 0, Math.PI / 2, 0, 0), 'z', 0.2);
+  spin(mk(rig, torus(4.8, 0.04, 56, 6), blueHot, 0, 0.12, 0, Math.PI / 2, 0, 0), 'z', -0.35);
+  return k.refs;
+}
+
+// ───────────────────────── NEON MEDUSA (neon district core chamber) ─────────────────────────
+// Floating cyber-jellyfish: a ringed armoured umbrella wearing tilted neon crown rings, a curtain of falling green
+// digits around its core, a thicket of glowing light tendrils below and six blade pods hanging off the rim.
+function buildNeon(rig: THREE.Group): BossRefs {
+  const k = createKit('neon', rig, 0xffffff);
+  const { armor, solid, glow, halo, rbox, cyl, sph, cone, torus, mk, grp, V, spin, orbit, pulse, sway, blade } = k;
+  const texHull = panelTexture('#34345a', '#e879f9', 5);
+  const texPlate = panelTexture('#6a68a0', '#67e8f9', 4);
+  const texDark = panelTexture('#1e1e3a', '#a78bfa', 5);
+  const hull = armor(0x5a58a0, texHull, 0.5, 0.42);
+  const plate = armor(0x8a88c0, texPlate, 0.5, 0.4);
+  const dark = armor(0x2a2a4e, texDark, 0.55, 0.45);
+  const steel = solid(0xa8a6d0, 0.85, 0.26);
+  const black = solid(0x05040c, 0.4, 0.6);
+  const magenta = glow(0xe879f9, true);
+  const cyan = glow(0x67e8f9, true);
+  const violet = glow(0xa78bfa, true);
+  const white = glow(0xf5f3ff);
+  const holo = (color: number, op: number) => new THREE.MeshBasicMaterial({ color, transparent: true, opacity: op, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+  const holoViolet = holo(0xa78bfa, 0.34);
+  const holoCyan = holo(0x67e8f9, 0.3);
+  const holoMagenta = holo(0xe879f9, 0.3);
+  const orient = (o: THREE.Object3D, dir: THREE.Vector3) => o.quaternion.setFromUnitVectors(V(0, 1, 0), dir.clone().normalize());
+  const scrollTex: THREE.Texture[] = [];
+  const digits = (cols: number, rows: number, seed: number, repeatX = 1) => {
+    const t = digitTexture(cols, rows, seed);
+    t.repeat.x = repeatX;
+    if (!scrollTex.includes(t)) scrollTex.push(t);
+    return digitMaterial(t, 0.9);
+  };
+
+  // ── umbrella: stacked armoured discs, a flared bell underneath and a glowing mouth ──
+  const bell = grp(rig, 0, 0, 0);
+  mk(bell, cyl(2.7, 3.1, 0.55, 40), hull, 0, 5.5, 0);
+  mk(bell, cyl(2.1, 2.6, 0.5, 40), dark, 0, 6.0, 0);
+  mk(bell, cyl(1.4, 1.9, 0.5, 36), plate, 0, 6.45, 0);
+  for (const [y, r, c] of [[5.25, 3.1, magenta], [5.78, 2.65, cyan], [6.25, 2.0, violet], [6.72, 1.45, magenta]] as const) {
+    mk(bell, torus(r, 0.07, 56, 8), c, 0, y, 0, Math.PI / 2, 0, 0);
+  }
+  const bellGeo = new THREE.LatheGeometry([V(3.1, 5.2, 0), V(3.2, 4.9, 0), V(2.9, 4.5, 0), V(2.2, 4.0, 0), V(1.4, 3.5, 0), V(0.9, 3.15, 0), V(0.0, 3.05, 0)].map((v) => new THREE.Vector2(v.x, v.y)), 32);
+  mk(bell, bellGeo, dark, 0, 0, 0).material = new THREE.MeshPhysicalMaterial({ color: 0x4a4880, metalness: 0.4, roughness: 0.4, clearcoat: 0.6, side: THREE.DoubleSide, emissive: 0x1a1640, emissiveIntensity: 0.6 });
+  for (let i = 0; i < 16; i++) { // armour fins and neon ribs running down the bell
+    const a = (i / 16) * Math.PI * 2;
+    mk(bell, rbox(0.3, 1.8, 0.16, 0.05), i % 2 ? plate : hull, Math.cos(a) * 2.85, 4.5, Math.sin(a) * 2.85, 0.5 * (i % 2 ? 1 : 0.6), -a + Math.PI / 2, 0).rotateX(0);
+    mk(bell, new THREE.BoxGeometry(0.05, 1.6, 0.05), i % 3 === 0 ? cyan : i % 3 === 1 ? magenta : violet, Math.cos(a) * 3.0, 4.5, Math.sin(a) * 3.0, 0, -a + Math.PI / 2, 0);
+  }
+  // mouth + core
+  const mouth = mk(bell, sph(0.75, 20), cyan, 0, 3.1, 0);
+  const mouthCore = mk(bell, sph(0.4, 16), white, 0, 3.1, 0);
+  const mouthHalo = mk(bell, sph(1.7, 18), halo(0x67e8f9, 0.28, true), 0, 3.0, 0);
+  const mouthHalo2 = mk(bell, sph(2.6, 18), halo(0xe879f9, 0.12, true), 0, 3.4, 0);
+  pulse(mouth, 0.1); pulse(mouthCore, 0.18); pulse(mouthHalo, 0.1); pulse(mouthHalo2, 0.12);
+  // front visor: a wide eye-slit looking at the target
+  mk(rig, rbox(2.6, 0.7, 0.5, 0.2), black, 0, 5.1, -3.0, -0.1, 0, 0);
+  const eyeBar = mk(rig, new THREE.BoxGeometry(2.2, 0.16, 0.1), cyan, 0, 5.15, -3.28, -0.1, 0, 0);
+  void eyeBar;
+  for (const s of [-1, 1]) mk(rig, new THREE.BoxGeometry(0.5, 0.12, 0.1), magenta, s * 0.9, 4.9, -3.26, -0.1, 0, s * 0.3);
+
+  // ── crown rings: big tilted bands of dark armour with translucent neon ribbons ──
+  const crownRing = (R: number, y: number, tiltX: number, tiltZ: number, speed: number, arc: number) => {
+    const tilt = grp(rig, 0, y, 0, tiltX, 0, tiltZ);
+    const spinner = grp(tilt);
+    mk(spinner, torus(R, 0.48, 64, 12, arc), hull, 0, 0, 0, Math.PI / 2, 0, 0);
+    mk(spinner, torus(R, 0.1, 64, 8, arc), cyan, 0, 0.36, 0, Math.PI / 2, 0, 0);
+    mk(spinner, torus(R, 0.08, 64, 8, arc), magenta, 0, -0.36, 0, Math.PI / 2, 0, 0);
+    const ribbon = mk(spinner, new THREE.RingGeometry(R - 0.5, R + 1.1, 72, 1, 0, arc), holoViolet, 0, -0.1, 0, Math.PI / 2, 0, 0);
+    void ribbon;
+    for (let i = 0; i < 10; i++) {
+      const a = (i / 10) * arc;
+      mk(spinner, rbox(R * 0.3, 0.35, 0.8, 0.1), i % 2 ? plate : dark, Math.cos(a) * R, 0.2, Math.sin(a) * R, 0, -a + Math.PI / 2, 0);
+    }
+    spin(spinner, 'y', speed);
+    return spinner;
+  };
+  crownRing(6.6, 6.2, 0.38, -0.12, 0.12, Math.PI * 1.55);
+  crownRing(5.0, 7.0, -0.3, 0.26, -0.2, Math.PI * 1.7);
+  crownRing(3.3, 7.7, 0.18, 0.1, 0.34, Math.PI * 1.9);
+  const crownOrb = mk(rig, sph(0.4, 14), white, 0, 7.4, 0);
+  const crownHalo = mk(rig, sph(1.2, 14), halo(0xe879f9, 0.26, true), 0, 7.4, 0);
+  pulse(crownOrb, 0.18); pulse(crownHalo, 0.12);
+  spike(rig, V(0, 7.4, 0), V(0, 10.0, 0), 0.22, steel, 6);
+
+  function spike(parent: THREE.Object3D, a: THREE.Vector3, b: THREE.Vector3, r: number, mat: THREE.Material, seg = 5) {
+    const dir = new THREE.Vector3().subVectors(b, a);
+    const m = mk(parent, cone(r, dir.length(), seg), mat);
+    m.position.copy(a).addScaledVector(dir, 0.5);
+    orient(m, dir);
+    return m;
+  }
+
+  // ── light tendrils: armoured cores wrapped in translucent neon sheaths, swaying below the bell ──
+  const tendril = (a: number, r0: number, reach: number, curl: number, mat: THREE.Material, ph: number) => {
+    const g = grp(rig, 0, 0, 0);
+    const pts = [V(Math.cos(a) * r0, 3.4, Math.sin(a) * r0), V(Math.cos(a) * (r0 + reach * 0.35), 2.4, Math.sin(a) * (r0 + reach * 0.35)),
+      V(Math.cos(a + curl) * (r0 + reach * 0.8), 1.4, Math.sin(a + curl) * (r0 + reach * 0.8)), V(Math.cos(a + curl * 1.6) * (r0 + reach), 0.5, Math.sin(a + curl * 1.6) * (r0 + reach))];
+    const curve = new THREE.CatmullRomCurve3(pts);
+    mk(g, new THREE.TubeGeometry(curve, 28, 0.22, 6, false), dark);
+    mk(g, new THREE.TubeGeometry(curve, 28, 0.5, 8, false), mat);
+    mk(g, sph(0.22, 8), white, pts[3].x, pts[3].y, pts[3].z);
+    sway(g, 'y', 0.12, 0.7 + (ph % 3) * 0.15, ph);
+    return g;
+  };
+  for (let i = 0; i < 12; i++) {
+    const a = (i / 12) * Math.PI * 2;
+    tendril(a, 0.6 + (i % 2) * 0.5, 2.4 + (i % 3) * 0.7, 0.5 + (i % 4) * 0.1, i % 3 === 0 ? holoCyan : i % 3 === 1 ? holoMagenta : holoViolet, i * 0.9);
+  }
+  // data curtain: an open cylinder of falling green digits around the tendrils
+  const curtain = mk(rig, new THREE.CylinderGeometry(2.5, 2.9, 4.2, 36, 1, true), digits(10, 18, 4, 3), 0, 2.4, 0);
+  void curtain;
+  // second, wider curtain
+  mk(rig, new THREE.CylinderGeometry(4.0, 4.4, 4.6, 40, 1, true), digits(12, 20, 8, 4), 0, 2.3, 0);
+
+  // ── six blade pods hanging off the rim (they swing with the attack cues) ──
+  const pod = (a: number, R: number, y: number, ph: number) => {
+    const root = grp(rig, Math.sin(a) * R, y, -Math.cos(a) * R, 0, -a, 0);
+    const lift = grp(root);
+    k.refs.lifts.push({ obj: lift, idx: k.refs.lifts.length, front: Math.abs(a) < Math.PI / 2, side: Math.sign(a) || 1 });
+    const dir = V(0, -0.85, -1).normalize();
+    mk(lift, sph(0.55, 14), hull, 0, 0, 0);
+    mk(lift, torus(0.46, 0.05, 20, 8), magenta, 0, 0, 0, Math.PI / 2, 0, 0);
+    // fuselage: tapered blade-like pod ending in a long point
+    const body = mk(lift, blade(4.6, 1.9, 0.9), plate, 0, 0, 0);
+    orient(body, dir);
+    const glowEdge = mk(lift, blade(4.4, 0.5, 1.0), cyan, 0, 0, 0);
+    orient(glowEdge, dir);
+    const sheath = mk(lift, blade(3.4, 2.6, 0.2), holoViolet, 0, 0, 0.1);
+    orient(sheath, dir);
+    // ring emblem on the side of the pod
+    const side = dir.clone().multiplyScalar(1.6);
+    for (const sx of [-1, 1]) {
+      mk(lift, torus(0.55, 0.07, 24, 8), i2(sx), side.x + sx * 0.5, side.y, side.z, 0, Math.PI / 2, 0);
+      mk(lift, torus(0.34, 0.05, 20, 8), white, side.x + sx * 0.52, side.y, side.z, 0, Math.PI / 2, 0);
+    }
+    sway(root, 'z', 0.04, 0.8, ph);
+  };
+  function i2(sx: number) { return sx > 0 ? magenta : cyan; }
+  for (let i = 0; i < 6; i++) pod((i / 6) * Math.PI * 2 + 0.52, 4.4, 4.6, i * 0.9);
+
+  // ── floating holo screens, satellite ring-discs and pixel cubes ──
+  for (let i = 0; i < 4; i++) {
+    const g = new THREE.Group();
+    mk(g, new THREE.PlaneGeometry(2.2, 1.4), digits(8, 10, 20 + i), 0, 0, 0);
+    mk(g, rbox(2.4, 1.6, 0.06, 0.03), holoCyan, 0, 0, 0.03);
+    mk(g, new THREE.BoxGeometry(2.4, 0.06, 0.08), i % 2 ? magenta : cyan, 0, 0.8, 0);
+    mk(g, new THREE.BoxGeometry(2.4, 0.06, 0.08), i % 2 ? cyan : magenta, 0, -0.8, 0);
+    rig.add(g);
+    orbit(g, 8.0 + (i % 2) * 0.8, 2.6 + (i % 3) * 1.2, i * 1.57, 0.18 + i * 0.02, 0.5);
+  }
+  for (let i = 0; i < 4; i++) {
+    const g = new THREE.Group();
+    mk(g, cyl(0.9, 1.0, 0.28, 24), hull);
+    mk(g, torus(0.74, 0.05, 28, 8), i % 2 ? magenta : cyan, 0, 0.16, 0, Math.PI / 2, 0, 0);
+    mk(g, sph(0.2, 10), white, 0, 0.28, 0);
+    rig.add(g);
+    orbit(g, 7.0 + (i % 2) * 1.2, 4.2 + (i % 3) * 1.0, i * 1.57 + 0.7, 0.24 + i * 0.02, 0.5);
+  }
+  for (let i = 0; i < 16; i++) {
+    const g = new THREE.Group();
+    const s = 0.2 + (i % 3) * 0.1;
+    mk(g, rbox(s * 2, s * 2, s * 2, s * 0.3), i % 2 ? dark : plate);
+    mk(g, new THREE.BoxGeometry(s * 2.05, s * 0.3, s * 2.05), i % 3 === 0 ? cyan : i % 3 === 1 ? magenta : violet, 0, s * 0.5, 0);
+    rig.add(g);
+    orbit(g, 5.8 + (i % 4) * 0.7, 0.8 + (i % 6) * 1.3, i * 0.4, 0.45 + i * 0.03, 0.4);
+  }
+  // neon charge rings on the floor
+  spin(mk(rig, torus(6.6, 0.07, 64, 6), magenta, 0, 0.12, 0, Math.PI / 2, 0, 0), 'z', 0.2);
+  spin(mk(rig, torus(4.8, 0.04, 56, 6), cyan, 0, 0.12, 0, Math.PI / 2, 0, 0), 'z', -0.35);
+  rig.userData.scrollTex = scrollTex;
+  return k.refs;
+}
+
 export function buildBossModel(kind: BossKind, group: THREE.Group): BossStats {
   const rig = new THREE.Group();
   rig.scale.setScalar(BOSS_SCALE);
@@ -1199,6 +1723,9 @@ export function buildBossModel(kind: BossKind, group: THREE.Group): BossStats {
     : kind === 'warden' ? buildWarden(rig)
     : kind === 'frost' ? buildFrost(rig)
     : kind === 'myco' ? buildMyco(rig)
+    : kind === 'magma' ? buildMagma(rig)
+    : kind === 'storm' ? buildStorm(rig)
+    : kind === 'neon' ? buildNeon(rig)
     : buildTitan(rig);
   group.userData.bossRefs = refs;
   return BOSS_STATS[kind];
@@ -1304,6 +1831,8 @@ export function animateBoss(group: THREE.Object3D, time: number, delta: number, 
     p.obj.scale.setScalar(sc);
   }
   refs.rig.position.y = Math.sin(time * 1.1) * 0.04;
+  const scrollTex = refs.rig.userData.scrollTex as THREE.Texture[] | undefined;
+  if (scrollTex) for (const t of scrollTex) t.offset.y -= delta * 0.3;
   // telegraph flash: accents flicker toward white as the wind-up completes, and flare on release
   const flash = (k > 0.55 && cue.name !== 'idle' && cue.name !== 'recover' ? (0.5 + 0.5 * Math.sin(time * 30)) * ((k - 0.55) / 0.45) * 0.7 : 0) + hit * 0.8;
   for (const a of refs.accents) {

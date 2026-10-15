@@ -24,6 +24,9 @@ export const BOSS_FX: Record<BossKind, { a: number; b: number; slam: number; rad
   warden: { a: 0xa78bfa, b: 0xfde68a, slam: 0x8b5cf6, radius: 9.5 },
   frost: { a: 0x67e8f9, b: 0xe0f7ff, slam: 0x38bdf8, radius: 10 },
   myco: { a: 0xa3e635, b: 0xfde047, slam: 0x65a30d, radius: 10.5 },
+  magma: { a: 0xff6a1a, b: 0xffc15a, slam: 0xea580c, radius: 10.5 },
+  storm: { a: 0x38bdf8, b: 0xbae6fd, slam: 0x3b82f6, radius: 11 },
+  neon: { a: 0xe879f9, b: 0x67e8f9, slam: 0x8b5cf6, radius: 11 },
 };
 
 /** Which elite guards each boss calls in (summon_guard). */
@@ -35,6 +38,9 @@ const SUMMONS: Record<BossKind, string[]> = {
   warden: ['mender', 'lancer', 'berserker'],
   frost: ['weaver', 'chrono', 'lancer'],
   myco: ['wyrm', 'carrier', 'jester'],
+  magma: ['pyro', 'wyrm', 'lancer'],
+  storm: ['weaver', 'lancer', 'magnet'],
+  neon: ['mirage', 'jester', 'weaver'],
 };
 
 /** First move after an enrage roar. */
@@ -46,22 +52,30 @@ const SIGNATURE: Record<BossKind, string> = {
   warden: 'prism_beam',
   frost: 'rock_wave',
   myco: 'spore_brood',
+  magma: 'magma_cannon',
+  storm: 'thunder_strike',
+  neon: 'data_rain',
 };
 
 const LABELS: Record<string, Partial<Record<BossKind, string>> & { def: string }> = {
-  seraph_charge: { def: 'CHARGE', myco: 'CAP STAMPEDE', golgotha: 'SERAPH CHARGE', golem: 'COLOSSUS RAM', titan: 'DREADNOUGHT RAM', kraken: 'TIDAL RUSH', warden: 'LANCE CHARGE', frost: 'GLACIAL RUSH' },
-  artillery_rain: { def: 'BARRAGE', myco: 'SPORE BOMBARD', golgotha: 'HEAVEN PILLAR', golem: 'BOULDER RAIN', titan: 'ARTILLERY RAIN', kraken: 'WATER BOMB', warden: 'SWORD RAIN', frost: 'ICICLE RAIN' },
-  rock_wave: { def: 'ROCK WAVE', myco: 'MYCELIUM RUN', golem: 'ROCK WAVE', kraken: 'GEYSER LINE', frost: 'GLACIER LINE' },
-  tentacle_sweep: { def: 'SWEEP', myco: 'HYPHAE SWEEP', kraken: 'TENTACLE SWEEP', golem: 'TITAN SWEEP', golgotha: 'WING SCYTHE', frost: 'BLADE SWEEP' },
-  rail_cannon: { def: 'RAIL CANNON', myco: 'SPORE LANCE', titan: 'RAIL CANNON', warden: 'PRISM LANCE', frost: 'CRYO LANCE' },
+  seraph_charge: { def: 'CHARGE', myco: 'CAP STAMPEDE', magma: 'MAGMA RUSH', storm: 'GALE RUSH', neon: 'BURST DASH', golgotha: 'SERAPH CHARGE', golem: 'COLOSSUS RAM', titan: 'DREADNOUGHT RAM', kraken: 'TIDAL RUSH', warden: 'LANCE CHARGE', frost: 'GLACIAL RUSH' },
+  artillery_rain: { def: 'BARRAGE', myco: 'SPORE BOMBARD', magma: 'MAGMA SHELLING', storm: 'BALL LIGHTNING', neon: 'NEON LANCES', golgotha: 'HEAVEN PILLAR', golem: 'BOULDER RAIN', titan: 'ARTILLERY RAIN', kraken: 'WATER BOMB', warden: 'SWORD RAIN', frost: 'ICICLE RAIN' },
+  rock_wave: { def: 'ROCK WAVE', myco: 'MYCELIUM RUN', magma: 'LAVA UPTHRUST', storm: 'THUNDER RUN', neon: 'PACKET WAVE', golem: 'ROCK WAVE', kraken: 'GEYSER LINE', frost: 'GLACIER LINE' },
+  tentacle_sweep: { def: 'SWEEP', myco: 'HYPHAE SWEEP', magma: 'CLAW SWEEP', storm: 'WIND BLADE', neon: 'TENDRIL SWEEP', kraken: 'TENTACLE SWEEP', golem: 'TITAN SWEEP', golgotha: 'WING SCYTHE', frost: 'BLADE SWEEP' },
+  rail_cannon: { def: 'RAIL CANNON', storm: 'THUNDER LANCE', neon: 'DATA LANCE', myco: 'SPORE LANCE', titan: 'RAIL CANNON', warden: 'PRISM LANCE', frost: 'CRYO LANCE' },
 };
 const EXTRA_LABELS: Record<string, Partial<Record<BossKind, string>>> = {
-  holy_laser_fan: { myco: 'SPORE FAN' },
-  meteor_bomb: { myco: 'PUFFBALL' },
-  nova_ring: { myco: 'SPORE RING' },
-  spiral_barrage: { myco: 'SPORE SPIRAL' },
-  judgement_slam: { myco: 'CAP SLAM' },
+  holy_laser_fan: { myco: 'SPORE FAN', magma: 'HEAT FAN', storm: 'ARC FAN', neon: 'SPECTRUM FAN' },
+  meteor_bomb: { myco: 'PUFFBALL', magma: 'SLAG BOMB', storm: 'STATIC BOMB', neon: 'GLITCH BOMB' },
+  nova_ring: { myco: 'SPORE RING', magma: 'FLARE RING', storm: 'EM FIELD', neon: 'PULSE RING' },
+  spiral_barrage: { myco: 'SPORE SPIRAL', magma: 'CORE VORTEX', storm: 'TEMPEST SPIRAL', neon: 'CODE SPIRAL' },
+  judgement_slam: { myco: 'CAP SLAM', magma: 'CORE SLAM', storm: 'EM FIELD SLAM', neon: 'OVERLOAD SLAM' },
   spore_brood: { myco: 'SPORE BROOD' },
+  magma_cannon: { magma: 'MAGMA CANNON' },
+  thunder_strike: { storm: 'THUNDER JUDGEMENT' },
+  storm_vortex: { storm: 'STORM VORTEX' },
+  data_rain: { neon: 'DATA RAIN' },
+  prism_beam: { neon: 'NEON PRISM' },
 };
 const labelOf = (p: string, k: BossKind) => EXTRA_LABELS[p]?.[k] ?? LABELS[p]?.[k] ?? LABELS[p]?.def ?? p.toUpperCase();
 
@@ -85,6 +99,10 @@ function durationOf(p: string, ph: number): number {
     case 'whirlpool': return 3.8;
     case 'prism_beam': return 1.0 * f + 4.2 + 0.5;
     case 'spore_brood': return 1.1 * f + 0.25 + 1.6 + 0.8;
+    case 'magma_cannon': return 1.4 * f + 0.2 + (8 + ph * 3) * 0.1 + 0.9;
+    case 'thunder_strike': return 1.0 * f + (ph >= 3 ? 4 : 3) * 0.85 + 0.95 + 0.7;
+    case 'storm_vortex': return 1.2 * f + 4.2 + 0.7;
+    case 'data_rain': return 1.1 * f + (ph >= 3 ? 3 : ph >= 2 ? 2 : 1) * 1.5 + 1.3 + 0.5;
     case 'summon_guard': return 2.2;
     case 'phase_shift': return 2.4;
   }
@@ -127,6 +145,21 @@ function pool(kind: BossKind, ph: number, dist: number, e: CombatEnemy, c: Comba
       p.push(['spore_brood', 3.2], ['artillery_rain', 2.6], ['rock_wave', 2.4], ['tentacle_sweep', near ? 3 : 1.2], ['holy_laser_fan', 2], ['judgement_slam', near ? 2.4 : 0.6], ['nova_ring', 1.4]);
       if (ph >= 2) p.push(['spore_brood', 2.4], ['spiral_barrage', 2.2], ['meteor_bomb', 1.8], ['seraph_charge', 1.6]);
       if (ph >= 3) p.push(['spore_brood', 2.4], ['nova_ring', 1.6], ['rock_wave', 1.6], ['artillery_rain', 1.6]);
+      break;
+    case 'magma':
+      p.push(['magma_cannon', 3.4], ['artillery_rain', 2.6], ['rock_wave', 2.8], ['tentacle_sweep', near ? 3 : 1.2], ['judgement_slam', near ? 2.6 : 0.7], ['holy_laser_fan', 1.6], ['nova_ring', 1.4]);
+      if (ph >= 2) p.push(['magma_cannon', 2.6], ['spiral_barrage', 2], ['meteor_bomb', 1.8], ['seraph_charge', 1.6]);
+      if (ph >= 3) p.push(['magma_cannon', 2.6], ['nova_ring', 1.6], ['rock_wave', 1.8], ['artillery_rain', 1.6]);
+      break;
+    case 'storm':
+      p.push(['thunder_strike', 3.4], ['storm_vortex', 2.6], ['rail_cannon', 2.4], ['holy_laser_fan', 2], ['artillery_rain', 2], ['judgement_slam', near ? 2.8 : 0.7], ['nova_ring', near ? 2.4 : 1.2]);
+      if (ph >= 2) p.push(['thunder_strike', 2.6], ['storm_vortex', 2.2], ['spiral_barrage', 2], ['meteor_bomb', 1.6], ['tentacle_sweep', near ? 2 : 0.6]);
+      if (ph >= 3) p.push(['thunder_strike', 2.6], ['storm_vortex', 2], ['rail_cannon', 2], ['nova_ring', 1.6]);
+      break;
+    case 'neon':
+      p.push(['data_rain', 3.4], ['prism_beam', 2.4], ['holy_laser_fan', 2], ['artillery_rain', 2], ['spiral_barrage', 1.6], ['judgement_slam', near ? 2.6 : 0.7], ['nova_ring', near ? 2.2 : 1.2]);
+      if (ph >= 2) p.push(['data_rain', 2.6], ['prism_beam', 2], ['meteor_bomb', 1.6], ['tentacle_sweep', near ? 2.4 : 0.8], ['rail_cannon', 1.8]);
+      if (ph >= 3) p.push(['data_rain', 2.6], ['prism_beam', 2.2], ['nova_ring', 1.6], ['spiral_barrage', 1.8]);
       break;
     case 'warden':
       p.push(['prism_beam', 3], ['holy_laser_fan', 3], ['artillery_rain', 2.5], ['meteor_bomb', 2], ['rail_cannon', 1.5], ['nova_ring', 1.5]);
@@ -199,6 +232,7 @@ export function chooseBossPattern(e: CombatEnemy, c: CombatCtx, dist: number): v
   e.shootCooldown = 6;
   e.ai.dashA = undefined;
   e.ai.waveA = undefined;
+  e.ai.cannonA = undefined;
   e.ai.dive = undefined;
   e.patternTimer = durationOf(pick, ph);
 }
@@ -567,6 +601,27 @@ export function runBossPattern(e: CombatEnemy, c: CombatCtx, dist: number): void
               const glowS = new THREE.Mesh(new THREE.SphereGeometry(1.3, 12, 10), new THREE.MeshBasicMaterial({ color: fx.a, transparent: true, opacity: 0.3, blending: THREE.AdditiveBlending, depthWrite: false }));
               mesh.add(pod, podCap, glowS);
               fxKind = 'geyser';
+            } else if (kind === 'magma') {
+              mesh = new THREE.Group();
+              const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(0.85, 0), new THREE.MeshStandardMaterial({ color: 0x3a2a26, roughness: 0.85, emissive: 0xff5a1a, emissiveIntensity: 0.8 }));
+              const hot = new THREE.Mesh(new THREE.SphereGeometry(0.55, 10, 8), new THREE.MeshBasicMaterial({ color: 0xffb347 }));
+              const glowS = new THREE.Mesh(new THREE.SphereGeometry(1.35, 12, 10), new THREE.MeshBasicMaterial({ color: fx.a, transparent: true, opacity: 0.3, blending: THREE.AdditiveBlending, depthWrite: false }));
+              mesh.add(rock, hot, glowS);
+              fxKind = 'pillar';
+            } else if (kind === 'storm') {
+              mesh = new THREE.Group();
+              const orb = new THREE.Mesh(new THREE.SphereGeometry(0.6, 12, 10), new THREE.MeshBasicMaterial({ color: 0xf0f9ff }));
+              const shell = new THREE.Mesh(new THREE.SphereGeometry(0.95, 12, 10), new THREE.MeshBasicMaterial({ color: fx.a, transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false }));
+              const ring = new THREE.Mesh(new THREE.TorusGeometry(1.1, 0.05, 6, 24), new THREE.MeshBasicMaterial({ color: fx.b }));
+              mesh.add(orb, shell, ring);
+              fxKind = 'pillar';
+            } else if (kind === 'neon') {
+              mesh = new THREE.Group();
+              const cube = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.9, 0.9), new THREE.MeshBasicMaterial({ color: 0x4ade80 }));
+              const wire = new THREE.Mesh(new THREE.BoxGeometry(1.3, 1.3, 1.3), new THREE.MeshBasicMaterial({ color: fx.a, wireframe: true }));
+              const glowS = new THREE.Mesh(new THREE.SphereGeometry(1.3, 12, 10), new THREE.MeshBasicMaterial({ color: 0x4ade80, transparent: true, opacity: 0.28, blending: THREE.AdditiveBlending, depthWrite: false }));
+              mesh.add(cube, wire, glowS);
+              fxKind = 'pillar';
             } else if (kind === 'golem') {
               mesh = new THREE.Mesh(new THREE.DodecahedronGeometry(0.9, 0), new THREE.MeshStandardMaterial({ color: 0x5b5148, roughness: 0.9, emissive: 0xff5a1a, emissiveIntensity: 0.25 }));
               fxKind = 'spikes';
@@ -656,7 +711,7 @@ export function runBossPattern(e: CombatEnemy, c: CombatCtx, dist: number): void
               c.hazards.add({
                 shape: 'circle', x, z, radius: 1.95, delay: 0.3 + j * 0.11,
                 damage: Math.round(e.damage * 1.1), knockUp: 8,
-                label: labelOf(p, kind), color: fx.slam, fx: kind === 'kraken' ? 'geyser' : kind === 'golem' || kind === 'frost' || kind === 'myco' ? 'spikes' : 'pillar',
+                label: labelOf(p, kind), color: fx.slam, fx: kind === 'kraken' ? 'geyser' : kind === 'golem' || kind === 'frost' || kind === 'myco' || kind === 'magma' ? 'spikes' : 'pillar',
                 shake: j % 3 === 0 ? 0.15 : 0,
               });
             }
@@ -843,6 +898,209 @@ export function runBossPattern(e: CombatEnemy, c: CombatCtx, dist: number): void
         if (once(1)) {
           impact(0.6);
           c.sfx.heavy();
+        }
+      }
+      break;
+    }
+
+    // ───────────── マグマ砲: the chest core charges, then spits a stream of molten bolts along the locked line ─────────────
+    case 'magma_cannon': {
+      e.velocity.multiplyScalar(0.25);
+      const wind = 1.4 * f;
+      const n = 8 + ph * 3;
+      const gap = 0.1;
+      const fireStart = wind + 0.2;
+      if (t < wind) {
+        cue('aim', t / wind);
+        if (once(0)) {
+          c.announce(`⚠ ${labelOf(p, kind)} // 炉心の射線から外れろ`);
+          c.sfx.scan();
+          c.hazards.add({
+            shape: 'line', x: pos.x, z: pos.z, radius: 1.5, length: 44, angle: aimYaw(), delay: wind, lockAt: 0.35,
+            track: () => ({ x: pos.x, z: pos.z, angle: aimYaw() }),
+            damage: 0, label: '', color: fx.a, fx: 'none', owner: e,
+            onBurst: (_h, h) => { A.cannonA = h.angle; },
+          });
+        }
+      } else if (t < fireStart + n * gap) {
+        cue('aim', 1);
+        const a0 = A.cannonA ?? aimYaw();
+        e.faceAngle = a0;
+        const idx = Math.floor((t - fireStart) / gap);
+        if (idx >= 0 && idx < n && once(4 + idx)) {
+          // the stream sweeps across the lane, so stepping sideways is not enough on its own
+          const side = e.strafeSign || 1;
+          const yaw = a0 + (idx / Math.max(1, n - 1) - 0.5) * (ph >= 2 ? 0.95 : 0.55) * side + (Math.random() - 0.5) * 0.04;
+          const big = ph >= 2 && idx % 4 === 3;
+          const muzzle = new THREE.Vector3(pos.x + Math.sin(yaw) * 6.2, pos.y + 6.7, pos.z + Math.cos(yaw) * 6.2);
+          const d = dirFromYaw(yaw, 6.7);
+          c.fireBullet({ from: muzzle, dir: d, speed: big ? 17 : 24, damage: Math.round(e.damage * (big ? 1.1 : 0.62)), color: big ? fx.b : fx.a, size: big ? 0.75 : 0.45, radius: big ? 0.9 : 0.6, life: 3.4 });
+          c.sparks(muzzle, fx.b, big ? 10 : 5);
+          impact(big ? 0.7 : 0.3);
+          if (idx % 3 === 0) c.sfx.heavy(); else c.sfx.shot();
+        }
+      } else {
+        cue('recover', 1);
+        e.faceAngle = undefined;
+      }
+      break;
+    }
+
+    // ───────────── 天罰の雷: waves of marked circles; lightning strikes the player's position and the ground around it ─────────────
+    case 'thunder_strike': {
+      e.velocity.multiplyScalar(0.4);
+      const wind = 1.0 * f;
+      const waves = ph >= 3 ? 4 : 3;
+      const spacing = 0.85;
+      const n = 4 + ph * 2;
+      if (t < wind) {
+        cue('raise', t / wind);
+        if (once(0)) {
+          c.announce(`⚠ ${labelOf(p, kind)} // 落雷の予兆から離れろ`);
+          c.sfx.scan();
+        }
+      } else {
+        cue('raise', Math.max(0.4, 1 - (t - wind) * 0.3));
+        for (let w = 0; w < waves; w++) {
+          if (t >= wind + w * spacing && once(4 + w)) {
+            for (let i = 0; i < n; i++) {
+              let x = c.player.x;
+              let z = c.player.z;
+              if (i > 0) {
+                const a = Math.random() * Math.PI * 2;
+                const r = 2.5 + Math.random() * 11;
+                x += Math.cos(a) * r;
+                z += Math.sin(a) * r;
+              }
+              x = THREE.MathUtils.clamp(x, -37, 37);
+              z = THREE.MathUtils.clamp(z, -37, 37);
+              c.hazards.add({
+                shape: 'circle', x, z, radius: 2.6, delay: 0.95 + i * 0.03,
+                damage: Math.round(e.damage * 1.15), knockUp: 7,
+                label: labelOf(p, kind), color: fx.b, fx: 'pillar', shake: i === 0 ? 0.3 : 0.1, owner: e,
+                onBurst: i === 0 ? () => { if (!e.isDead) { impact(0.5); c.sfx.boom(); } } : undefined,
+              });
+            }
+          }
+        }
+      }
+      break;
+    }
+
+    // ───────────── 嵐の渦: a tornado spawns ahead, drifts toward the player and drags them in while chewing through anything close ─────────────
+    case 'storm_vortex': {
+      e.velocity.multiplyScalar(0.3);
+      const wind = 1.2 * f;
+      const life = 4.2;
+      if (once(0)) {
+        c.announce(`⚠ ${labelOf(p, kind)} // 渦から距離を取れ`);
+        c.sfx.scan();
+        const g = new THREE.Group();
+        const ringMat = new THREE.MeshBasicMaterial({ color: fx.a, transparent: true, opacity: 0.75, blending: THREE.AdditiveBlending, depthWrite: false });
+        const rings: THREE.Mesh[] = [];
+        for (let i = 0; i < 9; i++) {
+          const rr = 0.9 + i * 0.5;
+          const ring = new THREE.Mesh(new THREE.TorusGeometry(rr, 0.12, 6, 28), ringMat);
+          ring.rotation.x = Math.PI / 2;
+          ring.position.y = 0.4 + i * 1.3;
+          g.add(ring);
+          rings.push(ring);
+        }
+        const body = new THREE.Mesh(new THREE.CylinderGeometry(4.6, 0.7, 12, 20, 1, true), new THREE.MeshBasicMaterial({ color: fx.b, transparent: true, opacity: 0.16, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+        body.position.y = 6;
+        g.add(body);
+        const a = aimYaw();
+        const sx = THREE.MathUtils.clamp(pos.x + Math.sin(a) * 10, -34, 34);
+        const sz = THREE.MathUtils.clamp(pos.z + Math.cos(a) * 10, -34, 34);
+        g.position.set(sx, 0, sz);
+        g.scale.setScalar(0.1);
+        c.scene.add(g);
+        A.temp.push(g);
+        A.vortex = { g, rings, x: sx, z: sz, tick: 0 };
+      }
+      const V = A.vortex as { g: THREE.Group; rings: THREE.Mesh[]; x: number; z: number; tick: number } | undefined;
+      if (t < wind) {
+        cue('channel', t / wind);
+        if (V) V.g.scale.setScalar(0.1 + 0.9 * (t / wind));
+      } else if (t < wind + life) {
+        cue('channel', 1);
+        if (V) {
+          const u = t - wind;
+          const grow = Math.min(1, (life - u) / 0.6);
+          V.g.scale.setScalar(Math.max(0.05, grow));
+          // drift toward the player
+          const dx = c.player.x - V.x;
+          const dz = c.player.z - V.z;
+          const d = Math.hypot(dx, dz) || 1;
+          const sp = (3.0 + ph * 0.6) * c.delta;
+          V.x = THREE.MathUtils.clamp(V.x + (dx / d) * sp, -36, 36);
+          V.z = THREE.MathUtils.clamp(V.z + (dz / d) * sp, -36, 36);
+          V.g.position.set(V.x, 0, V.z);
+          V.rings.forEach((r, i) => { r.rotation.z += c.delta * (3 + i * 0.5) * (i % 2 ? -1 : 1); });
+          // suction: pulls the player toward the eye, strongest near the centre
+          const R = 12;
+          if (d < R) {
+            const pull = (1 - d / R) * (9 + ph * 2);
+            c.pushPlayer((-dx / d) * pull * c.delta * 2.2, (-dz / d) * pull * c.delta * 2.2);
+          }
+          V.tick -= c.delta;
+          if (d < 3.6 && V.tick <= 0) {
+            V.tick = 0.45;
+            c.hurt(Math.round(e.damage * 0.4), labelOf(p, kind), '#' + new THREE.Color(fx.a).getHexString(), { knockUp: 5, from: { x: V.x, z: V.z } });
+            c.shake(0.25, 0.25);
+          }
+          if (Math.random() < 0.5) c.sparks(new THREE.Vector3(V.x + (Math.random() - 0.5) * 5, 1 + Math.random() * 8, V.z + (Math.random() - 0.5) * 5), fx.b, 2);
+        }
+      } else {
+        cue('recover', 1);
+      }
+      break;
+    }
+
+    // ───────────── データレイン: lanes of falling green code sweep across the arena (more waves, rotated each time) ─────────────
+    case 'data_rain': {
+      e.velocity.multiplyScalar(0.3);
+      const wind = 1.1 * f;
+      const waves = ph >= 3 ? 3 : ph >= 2 ? 2 : 1;
+      const GREEN = 0x4ade80;
+      if (t < wind) {
+        cue('cast', t / wind);
+        if (once(0)) {
+          c.announce(`⚠ ${labelOf(p, kind)} // コードの降下レーンから外れろ`);
+          c.sfx.scan();
+        }
+      } else {
+        cue('channel', 1);
+      }
+      for (let w = 0; w < waves; w++) {
+        if (t >= w * 1.5 && once(4 + w)) {
+          const base = aimYaw() + w * (Math.PI / 2) + (w === 2 ? Math.PI / 4 : 0);
+          const dx = Math.sin(base), dz = Math.cos(base);
+          const px = Math.cos(base), pz = -Math.sin(base);
+          const n = 3 + ph;
+          const spacing = 7.2;
+          // the centre lane is locked onto where the player stands right now
+          const off0 = (c.player.x - pos.x) * px + (c.player.z - pos.z) * pz;
+          for (let i = 0; i < n; i++) {
+            const off = i === Math.floor(n / 2) ? off0 : (i - (n - 1) / 2) * spacing + off0 * 0.3;
+            const cx = pos.x + px * off, cz = pos.z + pz * off;
+            c.hazards.add({
+              shape: 'line', x: cx - dx * 46, z: cz - dz * 46, radius: 2.0, length: 92, angle: base, delay: wind + 0.9 + i * 0.16,
+              damage: Math.round(e.damage * 1.2), knockUp: 6,
+              label: labelOf(p, kind), color: GREEN, fx: 'beam', shake: 0.15, owner: e,
+            });
+          }
+          // a scatter of falling code blocks between the lanes
+          const blocks = 4 + ph * 2;
+          for (let i = 0; i < blocks; i++) {
+            const a = Math.random() * Math.PI * 2, r = 3 + Math.random() * 13;
+            c.hazards.add({
+              shape: 'circle', x: THREE.MathUtils.clamp(c.player.x + Math.cos(a) * r, -37, 37), z: THREE.MathUtils.clamp(c.player.z + Math.sin(a) * r, -37, 37),
+              radius: 1.9, delay: wind + 1.2 + i * 0.1, damage: Math.round(e.damage * 0.9), knockUp: 5,
+              label: labelOf(p, kind), color: GREEN, fx: 'pillar', owner: e,
+            });
+          }
+          if (w > 0) { c.announce('⚠ DATA RAIN // 再走査'); c.sfx.scan(); }
         }
       }
       break;

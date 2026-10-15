@@ -20,7 +20,7 @@ export interface StageTextureSet {
   panel: StageMaps;
 }
 
-type Style = 'apartments' | 'sanctuary' | 'foundry' | 'cathedral' | 'spire' | 'dock' | 'monolith' | 'omega' | 'abyss' | 'relic' | 'cryo' | 'overgrow';
+type Style = 'apartments' | 'sanctuary' | 'foundry' | 'cathedral' | 'spire' | 'dock' | 'monolith' | 'omega' | 'abyss' | 'relic' | 'cryo' | 'overgrow' | 'molten' | 'storm' | 'neon';
 
 interface Theme {
   style: Style;
@@ -293,6 +293,9 @@ const PALETTE: Record<Style, { floor: string; wall: string }> = {
   relic: { floor: '#8a7a9a', wall: '#9a8aae' },
   cryo: { floor: '#9db8cc', wall: '#aac4d8' },
   overgrow: { floor: '#7d9468', wall: '#8aa075' },
+  molten: { floor: '#6a5a54', wall: '#76645c' },
+  storm: { floor: '#5c6a84', wall: '#66748e' },
+  neon: { floor: '#4a4670', wall: '#58548a' },
 };
 
 const S = 1024;
@@ -464,6 +467,73 @@ function paintFloor(theme: Theme): StageMaps {
       s.glow((c) => { c.moveTo(120, S); c.bezierCurveTo(300, 700, 600, 880, 900, 600); }, '#d9f99d', 3);
       s.glow((c) => c.arc(cx, cy, 230, 0, Math.PI * 2), accent, 3);
       for (let k = 0; k < 18; k++) s.glowRect(s.rnd() * S, s.rnd() * S, 6, 6, k % 3 ? '#d9f99d' : '#fde68a');
+      break;
+    }
+    case 'molten': { // cooled basalt slabs split by glowing lava fissures, heat-scorched with ember specks
+      grid(4, (x, y, w) => s.panel(x, y, w, w, base, { gap: 6, bevel: 5, vary: 0.12, rough: 0.82 }));
+      s.mottle(100, 190, 0.12, '20,8,4'); s.grime(34);
+      for (let i = 0; i < 10; i++) s.crack(s.rnd() * S, s.rnd() * S, 120 + s.rnd() * 240, s.rnd() * 6.28);
+      // lava fissures: wide dull-red under-glow, narrow white-hot core
+      for (let i = 0; i < 9; i++) {
+        const x = s.rnd() * S, y = s.rnd() * S, a = s.rnd() * 6.28, len = 160 + s.rnd() * 300;
+        const pts: [number, number][] = [[x, y]];
+        let cx = x, cy = y, ca = a;
+        for (let k = 0; k < 6; k++) { ca += (s.rnd() - 0.5) * 1.1; cx += Math.cos(ca) * len / 6; cy += Math.sin(ca) * len / 6; pts.push([cx, cy]); }
+        const path = (c: CanvasRenderingContext2D) => { c.moveTo(pts[0][0], pts[0][1]); for (let k = 1; k < pts.length; k++) c.lineTo(pts[k][0], pts[k][1]); };
+        s.glow(path, accent, 7);
+        s.glow(path, '#fde68a', 2.5);
+      }
+      const cx = S / 2, cy = S / 2;
+      s.glow((c) => c.arc(cx, cy, 250, 0, Math.PI * 2), accent, 4);
+      for (let k = 0; k < 22; k++) s.glowRect(s.rnd() * S, s.rnd() * S, 6, 6, k % 3 ? '#fb923c' : '#fde68a');
+      break;
+    }
+    case 'storm': { // wet gunmetal deck plates: rain sheen, blue conduit circuits and concentric charge rings
+      grid(4, (x, y, w) => s.panel(x, y, w, w, base, { gap: 5, bevel: 5, vary: 0.08, rough: 0.3 }));
+      s.mottle(80, 170, 0.08, '10,20,50'); s.grime(14);
+      for (let i = 0; i < 6; i++) s.crack(s.rnd() * S, s.rnd() * S, 80 + s.rnd() * 160, s.rnd() * 6.28);
+      const cx = S / 2, cy = S / 2;
+      for (let r = 80; r <= 320; r += 80) s.glow((c) => c.arc(cx, cy, r, 0, Math.PI * 2), r % 160 ? accent : '#bae6fd', r % 160 ? 3 : 5);
+      s.glow((c) => { for (let k = 0; k < 8; k++) { const a = k * Math.PI / 4; c.moveTo(cx + Math.cos(a) * 80, cy + Math.sin(a) * 80); c.lineTo(cx + Math.cos(a) * 320, cy + Math.sin(a) * 320); } }, accent, 3);
+      // forked lightning-like traces across the plates
+      for (let i = 0; i < 6; i++) {
+        const x = s.rnd() * S, y = s.rnd() * S;
+        const pts: [number, number][] = [[x, y]];
+        let px = x, py = y;
+        for (let k = 0; k < 6; k++) { px += (s.rnd() - 0.5) * 120; py += 40 + s.rnd() * 60; pts.push([px, py]); }
+        s.glow((c) => { c.moveTo(pts[0][0], pts[0][1]); for (let k = 1; k < pts.length; k++) c.lineTo(pts[k][0], pts[k][1]); }, '#7dd3fc', 2.5);
+      }
+      for (let k = 0; k < 18; k++) s.glowRect(s.rnd() * S, s.rnd() * S, 6, 6, k % 3 ? '#7dd3fc' : '#e0f2fe');
+      for (let k = 0; k < 8; k++) s.rivet(60 + (k % 4) * 30, 60 + Math.floor(k / 4) * 30, 5);
+      break;
+    }
+    case 'neon': { // wet black-violet tiles: magenta/cyan neon grid, circuit traces and scattered green code glyphs
+      grid(4, (x, y, w) => s.panel(x, y, w, w, base, { gap: 5, bevel: 4, vary: 0.07, rough: 0.18 }));
+      s.mottle(80, 170, 0.07, '20,10,50'); s.grime(10);
+      const cx = S / 2, cy = S / 2;
+      s.glow((c) => { c.moveTo(0, 128); c.lineTo(S, 128); c.moveTo(0, 640); c.lineTo(S, 640); }, accent, 4);
+      s.glow((c) => { c.moveTo(384, 0); c.lineTo(384, S); c.moveTo(896, 0); c.lineTo(896, S); }, '#67e8f9', 4);
+      s.glow((c) => c.arc(cx, cy, 250, 0, Math.PI * 2), accent, 5);
+      s.glow((c) => c.arc(cx, cy, 130, 0, Math.PI * 2), '#67e8f9', 3);
+      s.glow((c) => { for (let k = 0; k < 6; k++) { const a = k * Math.PI / 3; c.moveTo(cx + Math.cos(a) * 130, cy + Math.sin(a) * 130); c.lineTo(cx + Math.cos(a) * 250, cy + Math.sin(a) * 250); } }, '#a78bfa', 3);
+      // circuit traces
+      for (let i = 0; i < 8; i++) {
+        const x = s.rnd() * S, y = s.rnd() * S;
+        const pts: [number, number][] = [[x, y]];
+        let px = x, py = y;
+        for (let k = 0; k < 5; k++) { if (k % 2) py += (s.rnd() - 0.5) * 160; else px += (s.rnd() - 0.5) * 200; pts.push([px, py]); }
+        s.glow((c) => { c.moveTo(pts[0][0], pts[0][1]); for (let k = 1; k < pts.length; k++) c.lineTo(pts[k][0], pts[k][1]); }, i % 2 ? '#67e8f9' : '#e879f9', 2.5);
+        s.glowRect(px - 5, py - 5, 10, 10, '#f5f3ff');
+      }
+      // green digits scattered across the tiles (albedo + emissive)
+      const glyphs = '0123456789ABCDEF';
+      for (let k = 0; k < 46; k++) {
+        const gx = s.rnd() * S, gy = s.rnd() * S;
+        const txt = glyphs[Math.floor(s.rnd() * 16)] + glyphs[Math.floor(s.rnd() * 16)];
+        for (const ctx2 of [s.a, s.e]) {
+          ctx2.save(); ctx2.font = 'bold 26px monospace'; ctx2.fillStyle = `rgba(74,222,128,${0.5 + s.rnd() * 0.5})`; ctx2.shadowColor = '#4ade80'; ctx2.shadowBlur = 8; ctx2.fillText(txt, gx, gy); ctx2.restore();
+        }
+      }
       break;
     }
     case 'relic': { // fused glass-sand slabs with golden sun inlay and violet fractures
@@ -639,6 +709,52 @@ function paintWall(theme: Theme): StageMaps {
       }
       for (let i = 0; i < 6; i++) s.crack(s.rnd() * S, s.rnd() * S, 120 + s.rnd() * 200, s.rnd() * 6.28);
       s.vertGrime(20);
+      break;
+    }
+    case 'molten': { // scorched foundry plating: riveted steel panels, glowing seams, soot streaks, heat vents
+      for (let i = 0; i < 4; i++) s.panel(i * 256, 0, 256, S, base, { gap: 6, bevel: 6, vary: 0.08, rough: 0.55, metalTone: 0.4 });
+      s.mottle(70, 160, 0.1, '30,10,4'); s.vertGrime(36);
+      for (let i = 0; i < 4; i++) {
+        const ox = i * 256;
+        s.glow((c) => { c.moveTo(ox + 128, 90); c.lineTo(ox + 128, 930); }, accent, 4);
+        s.glow((c) => { for (let k = 0; k < 8; k++) { c.moveTo(ox + 50, 150 + k * 100); c.lineTo(ox + 206, 150 + k * 100); } }, '#fdba74', 2);
+        for (let k = 0; k < 8; k++) s.glowRect(ox + 40, 130 + k * 100, 8, 8, k % 3 ? '#fb923c' : '#fde68a');
+      }
+      for (let i = 0; i < 8; i++) s.crack(s.rnd() * S, s.rnd() * S, 100 + s.rnd() * 220, s.rnd() * 6.28);
+      s.vertGrime(16);
+      break;
+    }
+    case 'storm': { // rain-streaked storm plating: riveted navy panels, blue conduit strips and status lights
+      for (let i = 0; i < 4; i++) s.panel(i * 256, 0, 256, S, base, { gap: 6, bevel: 6, vary: 0.07, rough: 0.35, metalTone: 0.5 });
+      s.mottle(70, 160, 0.08, '10,20,50'); s.vertGrime(30);
+      for (let i = 0; i < 4; i++) {
+        const ox = i * 256;
+        s.glow((c) => { c.moveTo(ox + 128, 80); c.lineTo(ox + 128, 940); }, accent, 4);
+        s.glow((c) => { for (let k = 0; k < 8; k++) { c.moveTo(ox + 56, 140 + k * 100); c.lineTo(ox + 200, 140 + k * 100); } }, '#bae6fd', 2);
+        for (let k = 0; k < 8; k++) s.glowRect(ox + 40, 122 + k * 100, 8, 8, k % 3 ? '#38bdf8' : '#e0f2fe');
+      }
+      for (let i = 0; i < 6; i++) s.crack(s.rnd() * S, s.rnd() * S, 100 + s.rnd() * 200, s.rnd() * 6.28);
+      s.vertGrime(18);
+      break;
+    }
+    case 'neon': { // dark glass facades: neon strip lines, window grids and falling green code columns
+      for (let i = 0; i < 4; i++) s.panel(i * 256, 0, 256, S, base, { gap: 6, bevel: 5, vary: 0.06, rough: 0.25, metalTone: 0.5 });
+      s.mottle(70, 160, 0.07, '20,10,50'); s.vertGrime(14);
+      for (let i = 0; i < 4; i++) {
+        const ox = i * 256;
+        s.glow((c) => { c.moveTo(ox + 24, 60); c.lineTo(ox + 24, 960); c.moveTo(ox + 232, 60); c.lineTo(ox + 232, 960); }, i % 2 ? '#e879f9' : '#67e8f9', 4);
+        s.glow((c) => { for (let k = 0; k < 6; k++) { c.moveTo(ox + 50, 150 + k * 130); c.lineTo(ox + 206, 150 + k * 130); } }, '#a78bfa', 2);
+        for (let k = 0; k < 12; k++) s.glowRect(ox + 60 + (k % 3) * 56, 120 + Math.floor(k / 3) * 190, 30, 60, k % 4 === 0 ? '#67e8f9' : k % 4 === 1 ? '#e879f9' : '#312e81');
+      }
+      const glyphs = '01ABCDEF';
+      for (let col = 0; col < 14; col++) {
+        const x = 20 + col * 72, y0 = s.rnd() * 500;
+        for (let k = 0; k < 10; k++) for (const ctx2 of [s.a, s.e]) {
+          ctx2.save(); ctx2.font = 'bold 22px monospace'; ctx2.fillStyle = `rgba(74,222,128,${0.15 + (k / 10) * 0.85})`; ctx2.shadowColor = '#4ade80'; ctx2.shadowBlur = 6;
+          ctx2.fillText(glyphs[Math.floor(s.rnd() * glyphs.length)], x, y0 + k * 30); ctx2.restore();
+        }
+      }
+      s.vertGrime(10);
       break;
     }
     case 'relic': { // sun-glyph plates of fused glass with gold trim
