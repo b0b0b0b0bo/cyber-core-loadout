@@ -2349,7 +2349,7 @@ export const INITIAL_SKILL_NODES: SkillNode[] = [
     name: 'SYNAPSE RUSH // シナプス格闘加速',
     branch: 'INFIGHT',
     nodeType: 'PASSIVE_STAT',
-    description: '【INFIGHT】全近接武器の攻撃範囲 +15%、攻撃力 +15%、クリティカル率 +8%。',
+    description: '【INFIGHT】全近接武器の攻撃力 +15%、ノックバック威力 +20%、クリティカル率 +8%。',
     cost: 150,
     unlocked: false,
     tier: 1,
@@ -2358,7 +2358,7 @@ export const INITIAL_SKILL_NODES: SkillNode[] = [
     prerequisites: ['core_root'],
     effects: [
       { stat: 'meleeDamage', value: 0.15, label: '近接威力 +15%' },
-      { stat: 'sweepRange', value: 0.15, label: '近接攻撃範囲 +15%' },
+      { stat: 'sweepKnockback', value: 0.2, label: 'ノックバック +20%' },
       { stat: 'critRate', value: 0.08, label: 'クリティカル率 +8%' },
     ],
     isWeaponSpecific: false,
@@ -2366,10 +2366,10 @@ export const INITIAL_SKILL_NODES: SkillNode[] = [
   },
   {
     id: 'infight_passive_2',
-    name: 'SHIELD RECTIFIER // シールド整流・堅牢',
+    name: 'IMPACT RECTIFIER // 衝撃整流・強打',
     branch: 'INFIGHT',
     nodeType: 'PASSIVE_STAT',
-    description: '【INFIGHT】近接威力 +10%、ガード耐久値UP（ガード時被ダメージ -30%、スタミナ消費 -25%）。',
+    description: '【INFIGHT】近接威力 +10%、クリティカル率 +5%。',
     cost: 260,
     unlocked: false,
     tier: 2,
@@ -2378,7 +2378,7 @@ export const INITIAL_SKILL_NODES: SkillNode[] = [
     prerequisites: ['infight_unlock_gauntlets'],
     effects: [
       { stat: 'meleeDamage', value: 0.1, label: '近接威力 +10%' },
-      { stat: 'guardStaminaCost', value: -0.25, label: 'ガードスタミナ消費 -25%' },
+      { stat: 'critRate', value: 0.05, label: 'クリティカル率 +5%' },
     ],
     isWeaponSpecific: false,
     iconType: 'shield',
@@ -2407,7 +2407,7 @@ export const INITIAL_SKILL_NODES: SkillNode[] = [
     name: 'SWEEP ACCEL // 薙ぎ払い加速',
     branch: 'INFIGHT',
     nodeType: 'PASSIVE_STAT',
-    description: '【INFIGHT】Sweep Attack（薙ぎ払い特殊技）の扇状範囲 +35%、ノックバック威力 +50%。',
+    description: '【INFIGHT】近接威力 +15%、Sweep Attack（薙ぎ払い特殊技）のノックバック威力 +50%。',
     cost: 380,
     unlocked: false,
     tier: 3,
@@ -2415,7 +2415,7 @@ export const INITIAL_SKILL_NODES: SkillNode[] = [
     y: 350,
     prerequisites: ['infight_passive_2'],
     effects: [
-      { stat: 'sweepRange', value: 0.35, label: 'Sweep攻撃範囲 +35%' },
+      { stat: 'meleeDamage', value: 0.15, label: '近接威力 +15%' },
       { stat: 'sweepKnockback', value: 0.5, label: 'ノックバック +50%' },
     ],
     isWeaponSpecific: false,
@@ -3801,7 +3801,7 @@ export const INITIAL_SKILL_NODES: SkillNode[] = [
     name: 'BLADE FLOW // 連撃マスタリー',
     branch: 'INFIGHT',
     nodeType: 'PASSIVE_STAT',
-    description: '【INFIGHT】全近接武器の威力 +30%、攻撃範囲 +20%、攻撃時シールド吸収 +10%。',
+    description: '【INFIGHT】全近接武器の威力 +30%、クリティカル率 +8%、攻撃時シールド吸収 +10%。',
     cost: 680,
     unlocked: false,
     tier: 4,
@@ -3810,7 +3810,7 @@ export const INITIAL_SKILL_NODES: SkillNode[] = [
     prerequisites: ['infight_sweep_mastery'],
     effects: [
       { stat: 'meleeDamage', value: 0.3, label: '近接威力 +30%' },
-      { stat: 'sweepRange', value: 0.2, label: '近接攻撃範囲 +20%' },
+      { stat: 'critRate', value: 0.08, label: 'クリティカル率 +8%' },
       { stat: 'lifeStealShield', value: 0.1, label: 'シールド吸収 +10%' },
     ],
     isWeaponSpecific: false,
@@ -4317,10 +4317,10 @@ for (const spec of SINGLE_NODE_WEAPON_SPECIALIZATIONS) {
 INITIAL_SKILL_NODES.push(
   {
     id: 'infight_phase_lancer', name: 'PHASE LANCER // 位相貫通', branch: 'INFIGHT', nodeType: 'PASSIVE_STAT',
-    description: '【INFIGHT】近接武器の前方攻撃幅 +18%。ランスの突きはさらに広い範囲を貫通する。',
+    description: '【INFIGHT】近接威力 +15%、クリティカル率 +6%。位相を貫く一撃が装甲ごと敵を穿つ。',
     cost: 760, unlocked: false, tier: 5, x: 90, y: 275,
     prerequisites: ['infight_master_blade_storm'],
-    effects: [{ stat: 'sweepRange', value: 0.18, label: '近接攻撃幅 +18%' }, { stat: 'range', value: 1.0, label: 'ランスリーチ +1.0m' }],
+    effects: [{ stat: 'meleeDamage', value: 0.15, label: '近接威力 +15%' }, { stat: 'critRate', value: 0.06, label: 'クリティカル率 +6%' }],
     isWeaponSpecific: false, iconType: 'zap',
   },
   {
@@ -4363,17 +4363,17 @@ INITIAL_SKILL_NODES.push(
   },
   {
     id: 'infight_mod_reach_extender',
-    name: 'REACH EXTENDER I // リーチ補正ユニット',
+    name: 'SERVO BOOST I // サーボ強化ユニット',
     branch: 'INFIGHT',
     nodeType: 'PASSIVE_STAT',
-    description: '【INFIGHT】近接武器のリーチ補正。攻撃有効範囲 +15%。',
+    description: '【INFIGHT】近接武器の駆動補正。近接威力 +10%。',
     cost: 250,
     unlocked: false,
     tier: 3,
     x: 190,
     y: 320,
     prerequisites: ['infight_mod_impact_damper'],
-    effects: [{ stat: 'sweepRange', value: 0.15, label: '近接攻撃範囲 +15%' }],
+    effects: [{ stat: 'meleeDamage', value: 0.1, label: '近接威力 +10%' }],
     isWeaponSpecific: false,
     iconType: 'sword',
   },
@@ -4398,7 +4398,7 @@ INITIAL_SKILL_NODES.push(
     name: 'DRIVE GEAR I // 旋回駆動ギア',
     branch: 'INFIGHT',
     nodeType: 'PASSIVE_STAT',
-    description: '【INFIGHT】近接攻撃範囲 +12%、クリティカル率 +6%。',
+    description: '【INFIGHT】近接威力 +8%、クリティカル率 +6%。',
     cost: 220,
     unlocked: false,
     tier: 2,
@@ -4406,7 +4406,7 @@ INITIAL_SKILL_NODES.push(
     y: 460,
     prerequisites: ['infight_passive_piston'],
     effects: [
-      { stat: 'sweepRange', value: 0.12, label: '近接攻撃範囲 +12%' },
+      { stat: 'meleeDamage', value: 0.08, label: '近接威力 +8%' },
       { stat: 'critRate', value: 0.06, label: 'クリティカル率 +6%' },
     ],
     isWeaponSpecific: false,
@@ -5746,7 +5746,7 @@ const WEAPON_COMPLEXITY_ORDER: Record<string, string[]> = {
 const BRIDGE_VARIANTS: Record<string, Array<{ name: string; description: string; stat: string; value: number; label: string; iconType: SkillNode['iconType'] }>> = {
   INFIGHT: [
     { name: 'RELAY FRAME // 近接中継フレーム', description: '近接兵装の中継回路。近接威力 +8%。', stat: 'meleeDamage', value: 0.08, label: '近接威力 +8%', iconType: 'sword' },
-    { name: 'RELAY REACH // 近接中継リーチ', description: '近接兵装の中継回路。近接攻撃範囲 +8%。', stat: 'sweepRange', value: 0.08, label: '近接攻撃範囲 +8%', iconType: 'speed' },
+    { name: 'RELAY IMPACT // 近接中継衝撃', description: '近接兵装の中継回路。ノックバック威力 +10%。', stat: 'sweepKnockback', value: 0.1, label: 'ノックバック +10%', iconType: 'speed' },
     { name: 'RELAY EDGE // 近接中継刃先', description: '近接兵装の中継回路。クリティカル率 +4%。', stat: 'critRate', value: 0.04, label: 'クリティカル率 +4%', iconType: 'crosshair' },
   ],
   ASSAULT: [
@@ -5809,10 +5809,10 @@ const BRIDGE_VARIANTS: Record<string, Array<{ name: string; description: string;
 INITIAL_SKILL_NODES.push(
   {
     id: 'infight_passive_frontier', name: 'FRONTIER EDGE // 新式格闘フレーム', branch: 'INFIGHT', nodeType: 'PASSIVE_STAT',
-    description: '【INFIGHT】次世代の近接兵装に対応した骨格。近接威力 +6%、近接攻撃範囲 +5%。新型INFIGHT兵装の解放ノードが連なる。',
+    description: '【INFIGHT】次世代の近接兵装に対応した骨格。近接威力 +6%、クリティカル率 +4%。新型INFIGHT兵装の解放ノードが連なる。',
     cost: 420, unlocked: false, tier: 4, x: 120, y: 470,
     prerequisites: ['infight_passive_absorb'],
-    effects: [{ stat: 'meleeDamage', value: 0.06, label: '近接威力 +6%' }, { stat: 'sweepRange', value: 0.05, label: '近接攻撃範囲 +5%' }],
+    effects: [{ stat: 'meleeDamage', value: 0.06, label: '近接威力 +6%' }, { stat: 'critRate', value: 0.04, label: 'クリティカル率 +4%' }],
     isWeaponSpecific: false, iconType: 'sword',
   },
   {
@@ -6143,7 +6143,7 @@ INITIAL_SKILL_NODES.push(
 const FILLER_VARIANTS: Record<string, Array<{ name: string; label: string; stat: string; value: number; iconType: SkillNode['iconType'] }>> = {
   INFIGHT: [
     { name: 'MELEE TUNER // 近接調律ユニット', label: '近接威力 +6%', stat: 'meleeDamage', value: 0.06, iconType: 'sword' },
-    { name: 'MELEE REACH // 近接リーチ補正', label: '近接攻撃範囲 +6%', stat: 'sweepRange', value: 0.06, iconType: 'sword' },
+    { name: 'MELEE IMPACT // 近接衝撃補正', label: 'ノックバック +8%', stat: 'sweepKnockback', value: 0.08, iconType: 'sword' },
     { name: 'MELEE EDGE // 近接刃先研磨', label: 'クリティカル率 +4%', stat: 'critRate', value: 0.04, iconType: 'crosshair' },
   ],
   ASSAULT: [
