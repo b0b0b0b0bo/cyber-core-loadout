@@ -7083,8 +7083,8 @@ export const BattleScene3D: React.FC<BattleScene3DProps> = ({
       if (isVictory) {
         const time = battleStats.current.timeSeconds;
         const dmgTaken = battleStats.current.damageTaken;
-        if (time < 45 && dmgTaken < 50) rank = 'S';
-        else if (time < 70 && dmgTaken < 100) rank = 'A';
+        if (time < 120 && dmgTaken < 150) rank = 'S';
+        else if (time < 200 && dmgTaken < 300) rank = 'A';
         else rank = 'B';
         sound.playVictory();
       } else {

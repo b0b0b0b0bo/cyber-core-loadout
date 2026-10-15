@@ -11,9 +11,9 @@ export const HEAL_DRONE_RANGE = 24;
 /** 回復を始めた後、この距離まで離れても回復を続ける (ターゲットのチラつき防止) */
 export const HEAL_DRONE_RANGE_HOLD = 30;
 /** 回復量 (HP/秒) */
-export const HEAL_DRONE_HPS = 14;
-/** 強化ノード「回復割合化」: 対象の最大HPに対する割合 (/秒)。最大HP100なら毎秒14HPで、固定値と同じ */
-export const HEAL_DRONE_PCT = 0.14;
+export const HEAL_DRONE_HPS = 7;
+/** 強化ノード「回復割合化」: 対象の最大HPに対する割合 (/秒)。最大HP100なら毎秒7HPで、固定値と同じ */
+export const HEAL_DRONE_PCT = 0.07;
 /** 強化ノード「回復範囲拡大」: 同時に回復できる人数と範囲 */
 export const HEAL_DRONE_RANGE_WIDE = 34;
 export const HEAL_DRONE_RANGE_HOLD_WIDE = 42;
