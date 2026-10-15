@@ -157,6 +157,7 @@ export interface PlayerStats {
   scrap: number;
   beacons: number;
   activeLoadout: Record<WeaponSlot, string | null>; // slot 1..4 -> weaponId (or null for empty slot)
-  weaponDamageLevels: Record<string, number>; // weaponId -> level (0 to 100)
-  nodeLevels: Record<string, number>; // skill node id -> level (1 to 10, unlocked nodes only)
+  weaponDamageLevels: Record<string, number>; // weaponId -> level (0 to 300)
+  nodeLevels: Record<string, number>; // skill node id -> level (1 to 30, unlocked nodes only)
+  levelBreaks?: Record<string, number>; // 限界突破回数 (nodeId / 'w:'+weaponId)
 }

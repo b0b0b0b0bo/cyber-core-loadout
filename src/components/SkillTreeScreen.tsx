@@ -4,7 +4,7 @@ import { SkillNode, SkillBranch, Weapon } from '../types';
 import { sound } from '../utils/sound';
 import { computeSkillTreeLayout, TREE_CENTER, isSpecificNode } from '../utils/skillTreeLayout';
 import { usePalette, cutCorners } from '../theme';
-import { maxNodeLevel, getNodeLevel, isNodeUpgradable, nodeUpgradeBulkCost, formatEffectValue, scaledEffectValue } from '../data/nodeLevels';
+import { maxNodeLevel, nodeLevelCap, nodeBreakCost, weaponBreakKey, weaponLevelCap, weaponBreakCost, weaponUpgradeCost, WEAPON_MAX_LEVEL, getNodeLevel, isNodeUpgradable, nodeUpgradeBulkCost, formatEffectValue, scaledEffectValue } from '../data/nodeLevels';
 import {
   Shield,
   Zap,
@@ -24,12 +24,45 @@ import {
   Hexagon,
 } from 'lucide-react';
 
+const BreakButton: React.FC<{
+  label: string;
+  cost: number;
+  beacons: number;
+  scrap: number;
+  have: number;
+  onBreak: () => void;
+}> = ({ label, cost, beacons, scrap, have, onBreak }) => {
+  const ok = scrap >= cost && have >= beacons;
+  return (
+    <button
+      onClick={() => {
+        if (!ok) {
+          sound.playDefeat();
+          return;
+        }
+        sound.playUpgradeSuccess();
+        onBreak();
+      }}
+      disabled={!ok}
+      className={`w-full py-2 px-3 text-xs font-cyber font-bold transition-all cursor-pointer ${
+        ok ? 'bg-hud-warn hover:brightness-110 text-hud-on-accent active:scale-[0.98]' : 'bg-hud-line text-hud-dim border border-hud-line-strong cursor-not-allowed'
+      }`}
+      style={{ clipPath: cutCorners(8) }}
+    >
+      <div>{label}</div>
+      <div className="font-mono font-normal mt-0.5">{cost.toLocaleString()} SCRAP + {beacons} BEACON</div>
+    </button>
+  );
+};
+
 interface SkillTreeScreenProps {
   nodes: SkillNode[];
   weapons: Weapon[];
   userScrap: number;
   userBeacons?: number;
   weaponDamageLevels?: Record<string, number>;
+  levelBreaks?: Record<string, number>;
+  onBreakLimit?: (key: string) => void;
   onUnlockNode: (nodeId: string, cost: number) => void;
   /** G キーで全武器を解放する（デバッグ用ショートカット） */
   onUnlockAllWeapons?: () => void;
@@ -66,6 +99,8 @@ export const SkillTreeScreen: React.FC<SkillTreeScreenProps> = ({
   userScrap,
   userBeacons = 0,
   weaponDamageLevels = {},
+  levelBreaks = {},
+  onBreakLimit,
   onUnlockNode,
   onUnlockAllWeapons,
   onUpgradeWeaponDamage,
@@ -1143,8 +1178,10 @@ export const SkillTreeScreen: React.FC<SkillTreeScreenProps> = ({
                   const lv = getNodeLevel(selectedNode, nodeLevels);
                   const maxLv = maxNodeLevel(selectedNode);
                   const maxed = lv >= maxLv;
-                  const one = nodeUpgradeBulkCost(selectedNode, lv, 1);
-                  const multi = nodeUpgradeBulkCost(selectedNode, lv, maxLv > 10 ? 10 : 5);
+                  const cap = nodeLevelCap(selectedNode, levelBreaks);
+                  const brk = nodeBreakCost(selectedNode, lv, levelBreaks);
+                  const one = nodeUpgradeBulkCost(selectedNode, lv, 1, cap);
+                  const multi = nodeUpgradeBulkCost(selectedNode, lv, maxLv > 30 ? 10 : 5, cap);
                   const canAfford = (b: { cost: number; beacons: number }) => userScrap >= b.cost && userBeacons >= b.beacons;
                   const costLabel = (b: { cost: number; beacons: number }) =>
                     b.beacons > 0 ? `${b.cost} SCRAP + ${b.beacons} BEACON` : `${b.cost} SCRAP`;
@@ -1192,6 +1229,15 @@ export const SkillTreeScreen: React.FC<SkillTreeScreenProps> = ({
                         <div className="py-2 px-3 bg-hud-warn/10 text-hud-warn border border-hud-warn/40 text-center font-cyber font-bold text-xs tracking-wider">
                           MAX LEVEL // 最大強化完了
                         </div>
+                      ) : brk ? (
+                        <BreakButton
+                          label={`LIMIT BREAK // 限界突破 (Lv.${lv} → 上限Lv.${cap + 10})`}
+                          cost={brk.cost}
+                          beacons={brk.beacons}
+                          scrap={userScrap}
+                          have={userBeacons}
+                          onBreak={() => onBreakLimit?.(selectedNode.id)}
+                        />
                       ) : (
                         <div className="flex items-center gap-2">
                           <button
@@ -1233,12 +1279,16 @@ export const SkillTreeScreen: React.FC<SkillTreeScreenProps> = ({
                   const currentLevel = weaponDamageLevels[unlockedWeaponTarget.id] || 0;
                   const currentBoostedDmg = Math.round(unlockedWeaponTarget.stats.damage * (1 + currentLevel * 0.03));
                   const nextBoostedDmg = Math.round(unlockedWeaponTarget.stats.damage * (1 + (currentLevel + 1) * 0.03));
-                  const singleUpgradeCost = Math.round(35 + currentLevel * 8);
+                  const singleUpgradeCost = weaponUpgradeCost(currentLevel);
+                  const wKey = weaponBreakKey(unlockedWeaponTarget.id);
+                  const wBreaks = levelBreaks[wKey] || 0;
+                  const wCap = weaponLevelCap(wBreaks);
+                  const wBrk = weaponBreakCost(currentLevel, wBreaks);
 
-                  const multiCount = Math.min(5, 100 - currentLevel);
+                  const multiCount = Math.min(5, wCap - currentLevel);
                   let multiUpgradeCost = 0;
                   for (let i = 0; i < multiCount; i++) {
-                    multiUpgradeCost += Math.round(35 + (currentLevel + i) * 8);
+                    multiUpgradeCost += weaponUpgradeCost(currentLevel + i);
                   }
 
                   return (
@@ -1273,7 +1323,7 @@ export const SkillTreeScreen: React.FC<SkillTreeScreenProps> = ({
                         </div>
                       </div>
 
-                      {/* 解放済み武器ノード選択時：武器ダメージ強化 (Lv.100まで可能) */}
+                      {/* 解放済み武器ノード選択時：武器ダメージ強化 (Lv.300まで可能 (100以降は限界突破が必要)) */}
                       {isUnlockedNode && (
                         <div className="bg-hud-tile p-3.5 border border-hud-accent/25">
                           <div className="flex items-center justify-between mb-2.5">
@@ -1282,14 +1332,14 @@ export const SkillTreeScreen: React.FC<SkillTreeScreenProps> = ({
                               DAMAGE MATRIX // 兵装ダメージ強化
                             </div>
                             <div className="text-xs font-cyber font-bold text-hud-warn tabular-nums">
-                              Lv.{currentLevel}<span className="text-hud-dim">/100</span>
+                              Lv.{currentLevel}<span className="text-hud-dim">/{WEAPON_MAX_LEVEL}</span>
                             </div>
                           </div>
 
                           <div className="w-full h-1.5 bg-hud-line overflow-hidden mb-3">
                             <div
                               className="h-full bg-gradient-to-r from-hud-accent via-hud-accent-2 to-hud-warn transition-all duration-300"
-                              style={{ width: `${currentLevel}%` }}
+                              style={{ width: `${(currentLevel / WEAPON_MAX_LEVEL) * 100}%` }}
                             />
                           </div>
 
@@ -1301,14 +1351,23 @@ export const SkillTreeScreen: React.FC<SkillTreeScreenProps> = ({
                               </div>
                             </div>
                             <div>
-                              <div className="text-[10px] text-hud-dim font-cyber">次Lv威力 (Lv.{Math.min(100, currentLevel + 1)})</div>
+                              <div className="text-[10px] text-hud-dim font-cyber">次Lv威力 (Lv.{Math.min(WEAPON_MAX_LEVEL, currentLevel + 1)})</div>
                               <div className="text-base font-bold text-hud-ok tabular-nums">
-                                {currentLevel < 100 ? `${nextBoostedDmg} (+${(currentLevel + 1) * 3}%)` : 'MAX LEVEL'}
+                                {currentLevel < WEAPON_MAX_LEVEL ? `${nextBoostedDmg} (+${(currentLevel + 1) * 3}%)` : 'MAX LEVEL'}
                               </div>
                             </div>
                           </div>
 
-                          {currentLevel < 100 ? (
+                          {wBrk ? (
+                            <BreakButton
+                              label={`LIMIT BREAK // 限界突破 (Lv.${currentLevel} → 上限Lv.${wCap + 50})`}
+                              cost={wBrk.cost}
+                              beacons={wBrk.beacons}
+                              scrap={userScrap}
+                              have={userBeacons}
+                              onBreak={() => onBreakLimit?.(wKey)}
+                            />
+                          ) : currentLevel < WEAPON_MAX_LEVEL ? (
                             <div className="flex items-center gap-2">
                               <button
                                 onClick={() => {
@@ -1357,7 +1416,7 @@ export const SkillTreeScreen: React.FC<SkillTreeScreenProps> = ({
                           ) : (
                             <div className="py-2 px-3 bg-hud-warn/10 text-hud-warn border border-hud-warn/40 text-center font-cyber font-bold text-xs flex items-center justify-center gap-2">
                               <Sparkles className="w-4 h-4" />
-                              MAX LEVEL // 最大強化完了 (LV. 100/100)
+                              MAX LEVEL // 最大強化完了 (LV. {WEAPON_MAX_LEVEL}/{WEAPON_MAX_LEVEL})
                             </div>
                           )}
                         </div>

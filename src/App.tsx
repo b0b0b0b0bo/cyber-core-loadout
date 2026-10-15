@@ -13,7 +13,7 @@ import { loadGameState, saveGameState, clearGameSave } from './utils/save';
 import { sound } from './utils/sound';
 import { MissionMap3D } from './components/MissionMap3D';
 import { LoadoutScreen } from './components/LoadoutScreen';
-import { maxNodeLevel } from './data/nodeLevels';
+import { maxNodeLevel, nodeLevelCap, nodeBreakCost, weaponBreakKey, weaponLevelCap, weaponBreakCost } from './data/nodeLevels';
 import { SkillTreeScreen } from './components/SkillTreeScreen';
 import { BattleScene3D } from './components/BattleScene3D';
 import { ResultScreen } from './components/ResultScreen';
@@ -214,7 +214,7 @@ export default function App() {
 
     setPlayerStats((prev) => {
       const curLevel = prev.weaponDamageLevels?.[weaponId] || 0;
-      const newLevel = Math.min(100, curLevel + levelsToAdd);
+      const newLevel = Math.min(weaponLevelCap(prev.levelBreaks?.[weaponBreakKey(weaponId)] || 0), curLevel + levelsToAdd);
       return {
         ...prev,
         scrap: prev.scrap - totalCost,
@@ -236,7 +236,28 @@ export default function App() {
         ...prev,
         scrap: prev.scrap - totalCost,
         beacons: prev.beacons - beaconCost,
-        nodeLevels: { ...prev.nodeLevels, [nodeId]: Math.min(targetNode ? maxNodeLevel(targetNode) : 1, cur + levelsToAdd) },
+        nodeLevels: { ...prev.nodeLevels, [nodeId]: Math.min(targetNode ? nodeLevelCap(targetNode, prev.levelBreaks) : 1, cur + levelsToAdd) },
+      };
+    });
+  };
+
+  // 限界突破: ノード(nodeId) / 武器('w:'+weaponId)。素材は現在値から再計算して検証する
+  const handleBreakLimit = (key: string) => {
+    setPlayerStats((prev) => {
+      const breaks = prev.levelBreaks || {};
+      let need: { cost: number; beacons: number } | null = null;
+      if (key.startsWith('w:')) {
+        need = weaponBreakCost(prev.weaponDamageLevels?.[key.slice(2)] || 0, breaks[key] || 0);
+      } else {
+        const node = skillNodes.find((n) => n.id === key);
+        need = node ? nodeBreakCost(node, Math.max(1, prev.nodeLevels?.[key] || 1), breaks) : null;
+      }
+      if (!need || prev.scrap < need.cost || prev.beacons < need.beacons) return prev;
+      return {
+        ...prev,
+        scrap: prev.scrap - need.cost,
+        beacons: prev.beacons - need.beacons,
+        levelBreaks: { ...breaks, [key]: (breaks[key] || 0) + 1 },
       };
     });
   };
@@ -512,6 +533,8 @@ export default function App() {
                 onUnlockNode={handleUnlockSkillNode}
                 onUnlockAllWeapons={DEV_MODE ? handleUnlockAllWeapons : undefined}
                 onUpgradeWeaponDamage={handleUpgradeWeaponDamage}
+                levelBreaks={playerStats.levelBreaks}
+                onBreakLimit={handleBreakLimit}
                 nodeLevels={playerStats.nodeLevels}
                 onUpgradeNode={handleUpgradeNode}
                 focusNodeId={focusNodeId}

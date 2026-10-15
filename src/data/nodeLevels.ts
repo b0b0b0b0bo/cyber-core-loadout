@@ -1,7 +1,9 @@
 import { SkillNode } from '../types';
 
 /** 解放したパッシブ / 特有強化ノードをさらに強化できる最大レベル。解放直後が Lv1。 */
-export const MAX_NODE_LEVEL = 10;
+export const MAX_NODE_LEVEL = 30;
+/** カテゴリ強化ノードは 10 レベルごとに限界突破が必要 */
+export const NODE_BREAK_INTERVAL = 10;
 
 /** 1レベルごとに基本効果へ加算される割合 (Lv10 で約2.1倍) */
 const EFFECT_PER_LEVEL = 0.12;
@@ -20,6 +22,35 @@ export const CORE_MAX_LEVEL = 100;
 const CORE_EFFECT_PER_LEVEL = 0.04;
 
 export const maxNodeLevel = (node: SkillNode): number => (node.id === 'core_root' ? CORE_MAX_LEVEL : MAX_NODE_LEVEL);
+
+/** 限界突破の記録キー (ノードID / 武器は 'w:武器ID') */
+export const weaponBreakKey = (weaponId: string) => `w:${weaponId}`;
+
+/** 突破回数を考慮した現在のレベル上限 (中枢コアは突破不要) */
+export const nodeLevelCap = (node: SkillNode, breaks: Record<string, number> = {}): number =>
+  node.id === 'core_root' ? CORE_MAX_LEVEL : Math.min(MAX_NODE_LEVEL, NODE_BREAK_INTERVAL * ((breaks[node.id] || 0) + 1));
+
+/** 次の限界突破に必要な素材。上限に達していなければ null */
+export const nodeBreakCost = (node: SkillNode, level: number, breaks: Record<string, number> = {}): { cost: number; beacons: number } | null => {
+  if (node.id === 'core_root' || level < nodeLevelCap(node, breaks) || level >= MAX_NODE_LEVEL) return null;
+  const k = (breaks[node.id] || 0) + 1; // 1回目 Lv10, 2回目 Lv20
+  return { cost: Math.round(node.cost * 12 * k * k), beacons: 15 * k * k };
+};
+
+/** 武器ダメージ強化: 最大 Lv300。Lv100 で最初の突破、以降 50 レベルごと */
+export const WEAPON_MAX_LEVEL = 300;
+export const WEAPON_FIRST_BREAK = 100;
+export const WEAPON_BREAK_INTERVAL = 50;
+
+export const weaponLevelCap = (breaks = 0): number => Math.min(WEAPON_MAX_LEVEL, WEAPON_FIRST_BREAK + WEAPON_BREAK_INTERVAL * breaks);
+
+export const weaponBreakCost = (level: number, breaks = 0): { cost: number; beacons: number } | null => {
+  if (level < weaponLevelCap(breaks) || level >= WEAPON_MAX_LEVEL) return null;
+  const k = breaks + 1; // 1回目 Lv100 ... 4回目 Lv250
+  return { cost: 15000 * k * k, beacons: 30 * k * k };
+};
+
+export const weaponUpgradeCost = (level: number): number => Math.round(35 + level * 8);
 
 export const getNodeLevel = (node: SkillNode, levels: Record<string, number>): number =>
   node.unlocked ? (!isNodeUpgradable(node) ? 1 : Math.max(1, Math.min(maxNodeLevel(node), levels[node.id] || 1))) : 0;
@@ -40,8 +71,9 @@ export const nodeUpgradeBulkCost = (
   node: SkillNode,
   level: number,
   count: number,
+  cap: number = maxNodeLevel(node),
 ): { count: number; cost: number; beacons: number } => {
-  const n = Math.max(0, Math.min(count, maxNodeLevel(node) - level));
+  const n = Math.max(0, Math.min(count, cap - level));
   let cost = 0;
   let beacons = 0;
   for (let i = 0; i < n; i++) {

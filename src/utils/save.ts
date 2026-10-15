@@ -22,6 +22,7 @@ interface SaveData {
   activeLoadout: PlayerStats['activeLoadout'];
   weaponDamageLevels: Record<string, number>;
   nodeLevels: Record<string, number>;
+  levelBreaks?: Record<string, number>;
   unlockedWeaponIds: string[];
   unlockedNodeIds: string[];
   missionProgress: Record<string, { unlocked: boolean; cleared: boolean }>;
@@ -95,6 +96,7 @@ export const loadGameState = (): RestoredState => {
         activeLoadout: { ...INITIAL_PLAYER_STATS.activeLoadout, ...save.activeLoadout },
         weaponDamageLevels: save.weaponDamageLevels,
         nodeLevels: save.nodeLevels,
+        levelBreaks: save.levelBreaks ?? {},
       }
     : INITIAL_PLAYER_STATS;
 
@@ -113,6 +115,7 @@ export const saveGameState = (state: RestoredState) => {
     activeLoadout: state.playerStats.activeLoadout,
     weaponDamageLevels: state.playerStats.weaponDamageLevels,
     nodeLevels: state.playerStats.nodeLevels,
+    levelBreaks: state.playerStats.levelBreaks,
     unlockedWeaponIds: state.weapons.filter((w) => w.unlocked).map((w) => w.id),
     unlockedNodeIds: state.skillNodes.filter((n) => n.unlocked).map((n) => n.id),
     missionProgress: Object.fromEntries(
