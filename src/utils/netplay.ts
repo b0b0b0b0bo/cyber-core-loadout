@@ -38,6 +38,26 @@ const RELAYED = new Set(['ps']);
 const ROOM_PREFIX = 'cybercore-coop-';
 export const ROOM_CODE_LENGTH = 8;
 
+/** 直接P2Pが通らない回線 (テザリング・AP分離・キャリアNAT等) のため、TURN中継を併用する */
+const PEER_OPTIONS = {
+  config: {
+    iceServers: [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' },
+      { urls: 'stun:openrelay.metered.ca:80' },
+      {
+        urls: [
+          'turn:openrelay.metered.ca:80',
+          'turn:openrelay.metered.ca:443',
+          'turn:openrelay.metered.ca:443?transport=tcp',
+        ],
+        username: 'openrelayproject',
+        credential: 'openrelayproject',
+      },
+    ],
+  },
+};
+
 export const isValidRoomCode = (code: string): boolean => /^\d{8}$/.test(code);
 
 export const randomRoomCode = (): string => String(Math.floor(Math.random() * 1e8)).padStart(ROOM_CODE_LENGTH, '0');
@@ -116,7 +136,7 @@ export class NetSession {
     if (!this.isHost) return Promise.reject(new Error('host only'));
     if (!isValidRoomCode(code)) return Promise.reject(new Error('コードは8桁の数字にしてください'));
     return new Promise((resolve, reject) => {
-      const peer = new Peer(ROOM_PREFIX + code);
+      const peer = new Peer(ROOM_PREFIX + code, PEER_OPTIONS);
       this.peer = peer;
       let opened = false;
       peer.on('open', () => {
@@ -164,7 +184,7 @@ export class NetSession {
     if (this.isHost) return Promise.reject(new Error('guest only'));
     if (!isValidRoomCode(code)) return Promise.reject(new Error('コードは8桁の数字です'));
     return new Promise((resolve, reject) => {
-      const peer = new Peer();
+      const peer = new Peer(PEER_OPTIONS);
       this.peer = peer;
       let settled = false;
       const fail = (text: string) => {
