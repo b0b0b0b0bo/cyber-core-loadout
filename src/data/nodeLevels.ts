@@ -16,10 +16,13 @@ export const isNodeUpgradable = (node: SkillNode): boolean =>
   !node.isWeaponSpecific &&
   node.effects.length > 0;
 
-/** 中枢コアは Lv100 まで強化できる */
-export const CORE_MAX_LEVEL = 100;
-/** コアの 1 レベルごとの効果加算割合 (Lv100 で約 5 倍) */
+/** 中枢コアは Lv500 まで強化できる。Lv100 で最初の突破、以降 50 レベルごと (武器と同じ方式) */
+export const CORE_MAX_LEVEL = 500;
+export const CORE_FIRST_BREAK = 100;
+export const CORE_BREAK_INTERVAL = 50;
+/** コアの 1 レベルごとの効果加算割合 (Lv100 で約 5 倍、以降は伸びを半分にして Lv500 で約 13 倍) */
 const CORE_EFFECT_PER_LEVEL = 0.04;
+const CORE_EFFECT_PER_LEVEL_HIGH = 0.02;
 
 export const maxNodeLevel = (node: SkillNode): number => (node.id === 'core_root' ? CORE_MAX_LEVEL : MAX_NODE_LEVEL);
 
@@ -28,11 +31,22 @@ export const weaponBreakKey = (weaponId: string) => `w:${weaponId}`;
 
 /** 突破回数を考慮した現在のレベル上限 (中枢コアは突破不要) */
 export const nodeLevelCap = (node: SkillNode, breaks: Record<string, number> = {}): number =>
-  node.id === 'core_root' ? CORE_MAX_LEVEL : Math.min(MAX_NODE_LEVEL, NODE_BREAK_INTERVAL * ((breaks[node.id] || 0) + 1));
+  node.id === 'core_root'
+    ? Math.min(CORE_MAX_LEVEL, CORE_FIRST_BREAK + CORE_BREAK_INTERVAL * (breaks[node.id] || 0))
+    : Math.min(MAX_NODE_LEVEL, NODE_BREAK_INTERVAL * ((breaks[node.id] || 0) + 1));
+
+/** 1 回の限界突破で上限が増えるレベル数 */
+export const nodeBreakStep = (node: SkillNode): number => (node.id === 'core_root' ? CORE_BREAK_INTERVAL : NODE_BREAK_INTERVAL);
 
 /** 次の限界突破に必要な素材。上限に達していなければ null */
 export const nodeBreakCost = (node: SkillNode, level: number, breaks: Record<string, number> = {}): { cost: number; beacons: number } | null => {
-  if (node.id === 'core_root' || level < nodeLevelCap(node, breaks) || level >= MAX_NODE_LEVEL) return null;
+  if (node.id === 'core_root') {
+    if (level < nodeLevelCap(node, breaks) || level >= CORE_MAX_LEVEL) return null;
+    const kc = (breaks[node.id] || 0) + 1; // 1回目 Lv100 ... 8回目 Lv450
+    if (kc <= 4) return { cost: 10000 * kc * kc, beacons: 20 * kc * kc };
+    return { cost: 160000 + 100000 * (kc - 4), beacons: 320 + 80 * (kc - 4) };
+  }
+  if (level < nodeLevelCap(node, breaks) || level >= MAX_NODE_LEVEL) return null;
   const k = (breaks[node.id] || 0) + 1; // 1回目 Lv10, 2回目 Lv20
   return { cost: Math.round(node.cost * 12 * k * k), beacons: 15 * k * k };
 };
@@ -59,7 +73,11 @@ export const getNodeLevel = (node: SkillNode, levels: Record<string, number>): n
 
 /** レベルに応じた効果倍率 (未解放は 0) */
 export const nodeEffectScale = (level: number, node?: SkillNode): number =>
-  level <= 0 ? 0 : 1 + (level - 1) * (node?.id === 'core_root' ? CORE_EFFECT_PER_LEVEL : EFFECT_PER_LEVEL);
+  level <= 0
+    ? 0
+    : node?.id === 'core_root'
+    ? 1 + (Math.min(level, 100) - 1) * CORE_EFFECT_PER_LEVEL + Math.max(0, level - 100) * CORE_EFFECT_PER_LEVEL_HIGH
+    : 1 + (level - 1) * EFFECT_PER_LEVEL;
 
 /** level -> level+1 に必要な SCRAP */
 export const nodeUpgradeCost = (node: SkillNode, level: number): number =>
@@ -67,7 +85,7 @@ export const nodeUpgradeCost = (node: SkillNode, level: number): number =>
 
 /** level -> level+1 に必要な BEACON (中枢コアの強化のみ必要) */
 export const nodeUpgradeBeaconCost = (node: SkillNode, level: number): number =>
-  node.id === 'core_root' ? 1 + Math.floor(level / 10) : 0;
+  node.id === 'core_root' ? (level < 100 ? 1 + Math.floor(level / 10) : 11 + Math.floor((level - 100) / 25)) : 0;
 
 export const nodeUpgradeBulkCost = (
   node: SkillNode,

@@ -4,7 +4,7 @@ import { SkillNode, SkillBranch, Weapon } from '../types';
 import { sound } from '../utils/sound';
 import { computeSkillTreeLayout, TREE_CENTER, isSpecificNode } from '../utils/skillTreeLayout';
 import { usePalette, cutCorners } from '../theme';
-import { maxNodeLevel, nodeLevelCap, nodeBreakCost, weaponBreakKey, weaponLevelCap, weaponBreakCost, weaponUpgradeCost, WEAPON_MAX_LEVEL, getNodeLevel, isNodeUpgradable, nodeUpgradeBulkCost, formatEffectValue, scaledEffectValue } from '../data/nodeLevels';
+import { maxNodeLevel, nodeLevelCap, nodeBreakCost, nodeBreakStep, weaponBreakKey, weaponLevelCap, weaponBreakCost, weaponUpgradeCost, WEAPON_MAX_LEVEL, getNodeLevel, isNodeUpgradable, nodeUpgradeBulkCost, formatEffectValue, scaledEffectValue } from '../data/nodeLevels';
 import {
   Shield,
   Zap,
@@ -1231,7 +1231,7 @@ export const SkillTreeScreen: React.FC<SkillTreeScreenProps> = ({
                         </div>
                       ) : brk ? (
                         <BreakButton
-                          label={`LIMIT BREAK // 限界突破 (Lv.${lv} → 上限Lv.${cap + 10})`}
+                          label={`LIMIT BREAK // 限界突破 (Lv.${lv} → 上限Lv.${cap + nodeBreakStep(selectedNode)})`}
                           cost={brk.cost}
                           beacons={brk.beacons}
                           scrap={userScrap}
