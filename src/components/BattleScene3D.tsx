@@ -2934,7 +2934,7 @@ function createEnemyInstance(
     baseSpeed: speed,
     damage: scaledDamage,
     scoreValue: Math.round(scaledHp * 5),
-    scrapValue: Math.max(1, Math.round(hp * 0.2 * Math.sqrt(difficultyMultiplier))),
+    scrapValue: Math.round(scaledHp * 0.2),
     attackCooldown: Math.random() * 2,
     shootCooldown: 1.5 + Math.random() * 2.0,
     isDead: false,

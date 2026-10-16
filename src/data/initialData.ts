@@ -925,7 +925,7 @@ export const INITIAL_WEAPONS: Weapon[] = [
 ];
 
 /** 後半ステージの報酬が膨らみすぎないよう、設定値を緩やかに圧縮した実際の SCRAP 報酬 */
-export const effectiveScrapReward = (scrapReward: number): number => Math.round(240 * Math.pow(scrapReward / 240, 0.85));
+export const effectiveScrapReward = (scrapReward: number): number => Math.round(240 * Math.pow(scrapReward / 240, 1));
 
 export const WORLD_MAPS: WorldMapDef[] = [
   {
