@@ -50,7 +50,7 @@ import { getReloadStyle, getWeaponReloadPose, getReloadPolish, getReloadEvents, 
 import { getPistolReloadPose } from '../utils/pistolReload';
 import { GUARD_PROFILES, MELEE_READY_POSE, LANCE_MAX_CHARGE, buildGuardFx, updateGuardFx } from '../utils/meleeGuards';
 import { getNodeLevel, scaledEffectValue } from '../data/nodeLevels';
-import { WORLD_MAPS, effectiveScrapReward, EDEN_DIFFICULTY, EDEN_MAP_ID, EDEN_INFO, EDEN_HP_BONUS } from '../data/initialData';
+import { WORLD_MAPS, effectiveScrapReward, EDEN_DIFFICULTY, EDEN_MAP_ID, EDEN_INFO, ENEMY_HP_BONUS } from '../data/initialData';
 import { NetSession } from '../utils/netplay';
 import { CoopBattle, CoopEnemy, ReviveInfo } from '../utils/coopBattle';
 import {
@@ -7294,10 +7294,8 @@ export const BattleScene3D: React.FC<BattleScene3DProps> = ({
         const spawnCount = Math.max(1, enDef.count);
         for (let i = 0; i < spawnCount; i++) {
           const enemyInst = createEnemyInstance(enDef, scene, coverObjectsRef.current, diffMult);
-          if (EDEN_DIFFICULTY[mission.id] !== undefined) {
-            // PROJECT EDEN は推奨武器レベルの据え置きで、敵HPだけさらに硬くする
-            enemyInst.hp = enemyInst.maxHp = Math.round(enemyInst.maxHp * EDEN_HP_BONUS);
-          }
+          // 全ステージ共通: 推奨武器レベルの計算には含めず、敵HPだけさらに硬くする
+          enemyInst.hp = enemyInst.maxHp = Math.round(enemyInst.maxHp * ENEMY_HP_BONUS);
           if (coop) {
             // 人数が増えるほど敵は硬くなる
             const mult = 1 + 0.6 * (coop.playerCount - 1);

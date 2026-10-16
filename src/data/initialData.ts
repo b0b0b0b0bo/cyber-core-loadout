@@ -1090,8 +1090,8 @@ export const EDEN_DIFFICULTY: Record<string, number> = {
   e06_sealvault: 16.5, e07_glasssea: 17.2, e08_choirdome: 17.8, e09_throneroad: 18.4, e10_eden_boss: 19.0,
 };
 
-/** PROJECT EDEN の敵HPに掛ける追加倍率 (推奨武器レベルの計算には含めない) */
-export const EDEN_HP_BONUS = 1.4;
+/** 全ステージの敵HPに掛ける追加倍率 (推奨武器レベルの計算には含めない) */
+export const ENEMY_HP_BONUS = 1.4;
 
 const EDEN_MISSIONS: Mission[] = [
   {
