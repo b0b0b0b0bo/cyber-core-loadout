@@ -3170,7 +3170,15 @@ export const BattleScene3D: React.FC<BattleScene3DProps> = ({
 
   // Visual FX State (Refined, Restrained)
   const [hitMarkerActive, setHitMarkerActive] = useState(false);
-  const [damageVignette, setDamageVignette] = useState(false);
+  const [damageVignetteKey, setDamageVignetteKey] = useState(0);
+  const damageVignetteTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** true で赤い画面端エフェクトを(再)発火。false は無視(自動で消える) */
+  const setDamageVignette = (on: boolean) => {
+    if (!on) return;
+    setDamageVignetteKey(k => k + 1);
+    if (damageVignetteTimer.current) clearTimeout(damageVignetteTimer.current);
+    damageVignetteTimer.current = setTimeout(() => setDamageVignetteKey(k => -Math.abs(k)), 600);
+  };
   const [floatingTexts, setFloatingTexts] = useState<FloatingText[]>([]);
   const [announcement, setAnnouncement] = useState('MISSION COMMENCED');
   const [waveCutin, setWaveCutin] = useState<{ wave: number; total: number; final: boolean; boss: boolean; bossName?: string } | null>(null);
@@ -5924,6 +5932,7 @@ export const BattleScene3D: React.FC<BattleScene3DProps> = ({
     sound.playShieldBlock();
     spawnDamageText(taken > 0 ? `${label} -${taken}` : label, g.color);
     if (taken > 0) {
+      setDamageVignette(true);
       const absorb = Math.min(playerShieldRef.current, taken);
       playerShieldRef.current -= absorb;
       playerHpRef.current = Math.max(0, playerHpRef.current - (taken - absorb));
@@ -11773,7 +11782,7 @@ export const BattleScene3D: React.FC<BattleScene3DProps> = ({
 
       {/* Low HP pulse + hurt flash */}
       {hudStats.hp > 0 && hudStats.hp / hudStats.maxHp <= 0.3 && <div className="absolute inset-0 pointer-events-none bh-lowhp" />}
-      {damageVignette && <div className="absolute inset-0 pointer-events-none bh-hurt" />}
+      {damageVignetteKey > 0 && <div key={damageVignetteKey} className="absolute inset-0 pointer-events-none bh-hurt" />}
       {koUi && (
         <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center bg-red-950/40">
           <div className="text-5xl font-black tracking-[0.4em] text-red-400 font-cyber">DOWN</div>
