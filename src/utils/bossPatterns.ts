@@ -27,6 +27,7 @@ export const BOSS_FX: Record<BossKind, { a: number; b: number; slam: number; rad
   magma: { a: 0xff6a1a, b: 0xffc15a, slam: 0xea580c, radius: 10.5 },
   storm: { a: 0x38bdf8, b: 0xbae6fd, slam: 0x3b82f6, radius: 11 },
   neon: { a: 0xe879f9, b: 0x67e8f9, slam: 0x8b5cf6, radius: 11 },
+  eden: { a: 0xfde68a, b: 0xffffff, slam: 0xfbbf24, radius: 11.5 },
 };
 
 /** Which elite guards each boss calls in (summon_guard). */
@@ -41,6 +42,7 @@ const SUMMONS: Record<BossKind, string[]> = {
   magma: ['pyro', 'wyrm', 'lancer'],
   storm: ['weaver', 'lancer', 'magnet'],
   neon: ['mirage', 'jester', 'weaver'],
+  eden: ['virtue', 'seraphim', 'archangel'],
 };
 
 /** First move after an enrage roar. */
@@ -55,27 +57,28 @@ const SIGNATURE: Record<BossKind, string> = {
   magma: 'magma_cannon',
   storm: 'thunder_strike',
   neon: 'data_rain',
+  eden: 'thunder_strike',
 };
 
 const LABELS: Record<string, Partial<Record<BossKind, string>> & { def: string }> = {
-  seraph_charge: { def: 'CHARGE', myco: 'CAP STAMPEDE', magma: 'MAGMA RUSH', storm: 'GALE RUSH', neon: 'BURST DASH', golgotha: 'SERAPH CHARGE', golem: 'COLOSSUS RAM', titan: 'DREADNOUGHT RAM', kraken: 'TIDAL RUSH', warden: 'LANCE CHARGE', frost: 'GLACIAL RUSH' },
-  artillery_rain: { def: 'BARRAGE', myco: 'SPORE BOMBARD', magma: 'MAGMA SHELLING', storm: 'BALL LIGHTNING', neon: 'NEON LANCES', golgotha: 'HEAVEN PILLAR', golem: 'BOULDER RAIN', titan: 'ARTILLERY RAIN', kraken: 'WATER BOMB', warden: 'SWORD RAIN', frost: 'ICICLE RAIN' },
-  rock_wave: { def: 'ROCK WAVE', myco: 'MYCELIUM RUN', magma: 'LAVA UPTHRUST', storm: 'THUNDER RUN', neon: 'PACKET WAVE', golem: 'ROCK WAVE', kraken: 'GEYSER LINE', frost: 'GLACIER LINE' },
-  tentacle_sweep: { def: 'SWEEP', myco: 'HYPHAE SWEEP', magma: 'CLAW SWEEP', storm: 'WIND BLADE', neon: 'TENDRIL SWEEP', kraken: 'TENTACLE SWEEP', golem: 'TITAN SWEEP', golgotha: 'WING SCYTHE', frost: 'BLADE SWEEP' },
-  rail_cannon: { def: 'RAIL CANNON', storm: 'THUNDER LANCE', neon: 'DATA LANCE', myco: 'SPORE LANCE', titan: 'RAIL CANNON', warden: 'PRISM LANCE', frost: 'CRYO LANCE' },
+  seraph_charge: { def: 'CHARGE', myco: 'CAP STAMPEDE', magma: 'MAGMA RUSH', storm: 'GALE RUSH', neon: 'BURST DASH', eden: 'SERAPH DESCENT', golgotha: 'SERAPH CHARGE', golem: 'COLOSSUS RAM', titan: 'DREADNOUGHT RAM', kraken: 'TIDAL RUSH', warden: 'LANCE CHARGE', frost: 'GLACIAL RUSH' },
+  artillery_rain: { def: 'BARRAGE', myco: 'SPORE BOMBARD', magma: 'MAGMA SHELLING', storm: 'BALL LIGHTNING', neon: 'NEON LANCES', eden: 'RAIN OF FEATHERS', golgotha: 'HEAVEN PILLAR', golem: 'BOULDER RAIN', titan: 'ARTILLERY RAIN', kraken: 'WATER BOMB', warden: 'SWORD RAIN', frost: 'ICICLE RAIN' },
+  rock_wave: { def: 'ROCK WAVE', myco: 'MYCELIUM RUN', magma: 'LAVA UPTHRUST', storm: 'THUNDER RUN', neon: 'PACKET WAVE', eden: 'RIVER OF LIGHT', golem: 'ROCK WAVE', kraken: 'GEYSER LINE', frost: 'GLACIER LINE' },
+  tentacle_sweep: { def: 'SWEEP', myco: 'HYPHAE SWEEP', magma: 'CLAW SWEEP', storm: 'WIND BLADE', neon: 'TENDRIL SWEEP', eden: 'SIX-WING SCYTHE', kraken: 'TENTACLE SWEEP', golem: 'TITAN SWEEP', golgotha: 'WING SCYTHE', frost: 'BLADE SWEEP' },
+  rail_cannon: { def: 'RAIL CANNON', storm: 'THUNDER LANCE', neon: 'DATA LANCE', eden: 'TRUMPET BLAST', myco: 'SPORE LANCE', titan: 'RAIL CANNON', warden: 'PRISM LANCE', frost: 'CRYO LANCE' },
 };
 const EXTRA_LABELS: Record<string, Partial<Record<BossKind, string>>> = {
-  holy_laser_fan: { myco: 'SPORE FAN', magma: 'HEAT FAN', storm: 'ARC FAN', neon: 'SPECTRUM FAN' },
-  meteor_bomb: { myco: 'PUFFBALL', magma: 'SLAG BOMB', storm: 'STATIC BOMB', neon: 'GLITCH BOMB' },
-  nova_ring: { myco: 'SPORE RING', magma: 'FLARE RING', storm: 'EM FIELD', neon: 'PULSE RING' },
-  spiral_barrage: { myco: 'SPORE SPIRAL', magma: 'CORE VORTEX', storm: 'TEMPEST SPIRAL', neon: 'CODE SPIRAL' },
-  judgement_slam: { myco: 'CAP SLAM', magma: 'CORE SLAM', storm: 'EM FIELD SLAM', neon: 'OVERLOAD SLAM' },
+  holy_laser_fan: { myco: 'SPORE FAN', magma: 'HEAT FAN', storm: 'ARC FAN', neon: 'SPECTRUM FAN', eden: 'FLAMING BLADES' },
+  meteor_bomb: { myco: 'PUFFBALL', magma: 'SLAG BOMB', storm: 'STATIC BOMB', neon: 'GLITCH BOMB', eden: 'HAILSTONES' },
+  nova_ring: { myco: 'SPORE RING', magma: 'FLARE RING', storm: 'EM FIELD', neon: 'PULSE RING', eden: 'SEVEN BOWLS' },
+  spiral_barrage: { myco: 'SPORE SPIRAL', magma: 'CORE VORTEX', storm: 'TEMPEST SPIRAL', neon: 'CODE SPIRAL', eden: 'WHEELS OF EYES' },
+  judgement_slam: { myco: 'CAP SLAM', magma: 'CORE SLAM', storm: 'EM FIELD SLAM', neon: 'OVERLOAD SLAM', eden: 'HOLY JUDGEMENT' },
   spore_brood: { myco: 'SPORE BROOD' },
   magma_cannon: { magma: 'MAGMA CANNON' },
-  thunder_strike: { storm: 'THUNDER JUDGEMENT' },
-  storm_vortex: { storm: 'STORM VORTEX' },
+  thunder_strike: { storm: 'THUNDER JUDGEMENT', eden: 'PILLARS OF HEAVEN' },
+  storm_vortex: { storm: 'STORM VORTEX', eden: 'WHIRLWIND OF EZEKIEL' },
   data_rain: { neon: 'DATA RAIN' },
-  prism_beam: { neon: 'NEON PRISM' },
+  prism_beam: { neon: 'NEON PRISM', eden: 'SEVENFOLD LIGHT' },
 };
 const labelOf = (p: string, k: BossKind) => EXTRA_LABELS[p]?.[k] ?? LABELS[p]?.[k] ?? LABELS[p]?.def ?? p.toUpperCase();
 
@@ -160,6 +163,11 @@ function pool(kind: BossKind, ph: number, dist: number, e: CombatEnemy, c: Comba
       p.push(['data_rain', 3.4], ['prism_beam', 2.4], ['holy_laser_fan', 2], ['artillery_rain', 2], ['spiral_barrage', 1.6], ['judgement_slam', near ? 2.6 : 0.7], ['nova_ring', near ? 2.2 : 1.2]);
       if (ph >= 2) p.push(['data_rain', 2.6], ['prism_beam', 2], ['meteor_bomb', 1.6], ['tentacle_sweep', near ? 2.4 : 0.8], ['rail_cannon', 1.8]);
       if (ph >= 3) p.push(['data_rain', 2.6], ['prism_beam', 2.2], ['nova_ring', 1.6], ['spiral_barrage', 1.8]);
+      break;
+    case 'eden':
+      p.push(['thunder_strike', 3.2], ['prism_beam', 2.4], ['holy_laser_fan', 2.4], ['artillery_rain', 2.2], ['storm_vortex', 2], ['judgement_slam', near ? 2.8 : 0.8], ['tentacle_sweep', near ? 2.4 : 0.8], ['nova_ring', near ? 2.2 : 1.2]);
+      if (ph >= 2) p.push(['thunder_strike', 2.4], ['spiral_barrage', 2.2], ['rail_cannon', 2], ['meteor_bomb', 1.8], ['seraph_charge', 1.6], ['prism_beam', 1.8]);
+      if (ph >= 3) p.push(['thunder_strike', 2.6], ['storm_vortex', 2.2], ['prism_beam', 2.2], ['sky_dive', 1.8], ['nova_ring', 1.8], ['spiral_barrage', 1.8]);
       break;
     case 'warden':
       p.push(['prism_beam', 3], ['holy_laser_fan', 3], ['artillery_rain', 2.5], ['meteor_bomb', 2], ['rail_cannon', 1.5], ['nova_ring', 1.5]);
@@ -564,7 +572,7 @@ export function runBossPattern(e: CombatEnemy, c: CombatCtx, dist: number): void
             }
             x = THREE.MathUtils.clamp(x, -37, 37);
             z = THREE.MathUtils.clamp(z, -37, 37);
-            const fromSky = kind === 'golgotha' || kind === 'warden' || kind === 'frost';
+            const fromSky = kind === 'golgotha' || kind === 'warden' || kind === 'frost' || kind === 'eden';
             const from = fromSky ? new THREE.Vector3(x, 34, z) : new THREE.Vector3(pos.x, pos.y + 9, pos.z);
             let mesh: THREE.Object3D | undefined;
             let fxKind: HazardFx = 'blast';
@@ -621,6 +629,16 @@ export function runBossPattern(e: CombatEnemy, c: CombatCtx, dist: number): void
               const wire = new THREE.Mesh(new THREE.BoxGeometry(1.3, 1.3, 1.3), new THREE.MeshBasicMaterial({ color: fx.a, wireframe: true }));
               const glowS = new THREE.Mesh(new THREE.SphereGeometry(1.3, 12, 10), new THREE.MeshBasicMaterial({ color: 0x4ade80, transparent: true, opacity: 0.28, blending: THREE.AdditiveBlending, depthWrite: false }));
               mesh.add(cube, wire, glowS);
+              fxKind = 'pillar';
+            } else if (kind === 'eden') {
+              mesh = new THREE.Group();
+              const fe = new THREE.Mesh(new THREE.ConeGeometry(0.28, 3.0, 4), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+              fe.position.y = -1.0;
+              fe.rotation.x = Math.PI;
+              const glowS = new THREE.Mesh(new THREE.SphereGeometry(1.1, 12, 10), new THREE.MeshBasicMaterial({ color: fx.a, transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false }));
+              const ring = new THREE.Mesh(new THREE.TorusGeometry(0.8, 0.05, 6, 24), new THREE.MeshBasicMaterial({ color: fx.slam }));
+              ring.rotation.x = Math.PI / 2;
+              mesh.add(fe, glowS, ring);
               fxKind = 'pillar';
             } else if (kind === 'golem') {
               mesh = new THREE.Mesh(new THREE.DodecahedronGeometry(0.9, 0), new THREE.MeshStandardMaterial({ color: 0x5b5148, roughness: 0.9, emissive: 0xff5a1a, emissiveIntensity: 0.25 }));

@@ -1048,6 +1048,160 @@ export const WORLD_MAPS: WorldMapDef[] = [
   },
 ];
 
+/**
+ * PROJECT EDEN: WORLD MAP の外にある高難度コンテンツ (MAP10 のボス撃破で解放)。
+ * ステージは INITIAL_MISSIONS の末尾 (mapId 11) に並び、敵は天使モチーフのみ。推奨武器レベル Lv300〜。
+ */
+export const EDEN_MAP_ID = 11 as const;
+export const EDEN_REQUIRED_BOSS_ID = 'm40_neon_boss';
+export const EDEN_REQUIRED_BOSS_NAME = 'SEC-70 電脳の中枢 BOSS';
+export const EDEN_BOSS_MISSION_ID = 'e10_eden_boss';
+export const EDEN_INFO = {
+  name: 'PROJECT EDEN // 楽園計画',
+  subName: 'EDEN-01 - 10 // 天上の聖域',
+  description: '電脳の街の光が静まった夜明け、空の彼方に白い門が開いた。かつて人類が封印した計画「EDEN」。聖域を守る天使型の機兵たちは、侵入者のすべてを裁くために目を開く。',
+  badge: 'PROJECT EDEN',
+  themeColor: '#f5c542',
+};
+
+const EDEN_DESC: Record<string, string> = {
+  messenger: '光の槍を携えて飛ぶ伝令の天使。二枚の翼で飛び回り、光弾を撃ち込む',
+  ophanim: '目で埋め尽くされた輪が幾重にも重なる車輪の天使。回転しながら浮遊し、光線を放つ',
+  cherubim: '人・獅子・牡牛・鷲の四つの顔を持つ智天使。四枚の翼で舞い、全方位を見張る',
+  seraphim: '六枚の翼で燃え上がる熾天使。炎の身体から高密度の光弾を連射する',
+  lionwing: '智天使の獅子の顔を持つ有翼の獣。光のたてがみを揺らして猛然と突進する',
+  bullwing: '智天使の牡牛の顔を持つ有翼の獣。重い角で薙ぎ払うように突進する',
+  archangel: '炎の剣と光の盾を携える大天使。予兆なく間合いを詰めて斬りつける',
+  principality: '冠を戴き長槍を構える権天使。光のマントをなびかせ、鋭く突き込む',
+  powers: '砕けた鎖を巻いた戦闘天使。光の戦鎚を振りかざして叩き伏せる',
+  trumpeter: '終末のラッパを構え浮遊する吹鳴の天使。轟く音波の弾を撃ち出す固定砲台',
+  censer: '黄金の香炉を振る天使。香炉から燃え盛る炎の弾を投げ落とす固定砲台',
+  dominion: '王笏と光の宝珠を掲げる巨躯の主天使。重装甲で押し潰す',
+  gatekeeper: '楽園の門を守る、回転する炎の剣を従えた巨躯の門番',
+  throne: '目の車輪を担いで歩く、玉座そのものの座天使。凄まじい耐久力を持つ',
+  virtue: '百合の杖で味方を癒す力天使。空中から回復の光を注ぐ（優先撃破）',
+  boss_eden: '四つの顔と六枚の翼、目に満ちた車輪の冠を持つ熾天使。炎の剣と天の裁きで侵入者を裁く',
+};
+const edenFoe = (enemyTypeId: string, name: string, count: number) => ({ enemyTypeId, name, count, description: EDEN_DESC[enemyTypeId] ?? '' });
+
+/** PROJECT EDEN の各階層の敵HP倍率 (推奨武器レベルが Lv300 → Lv450 に上がっていく) */
+export const EDEN_DIFFICULTY: Record<string, number> = {
+  e01_gate: 13.0, e02_cloudstair: 13.7, e03_lampstands: 14.4, e04_wheelgarden: 15.1, e05_trumpethall: 15.8,
+  e06_sealvault: 16.5, e07_glasssea: 17.2, e08_choirdome: 17.8, e09_throneroad: 18.4, e10_eden_boss: 19.0,
+};
+
+const EDEN_MISSIONS: Mission[] = [
+  {
+    id: 'e01_gate', mapId: EDEN_MAP_ID, code: 'EDEN-01', name: '第一階層', areaName: 'FLOOR 01',
+    description: '雲海の上に聳える白い巨門。黄金の円環の下で、伝令の天使たちが侵入者を告げる角笛を鳴らし、有翼の獅子と大天使が門前を固めている。',
+    threatLevel: 5, cleared: false, unlocked: false, isBoss: false, mapCoords: [-1.8, 0.0, 1.4],
+    enemies: [
+      edenFoe('messenger', 'Gate Messenger', 14), edenFoe('lionwing', 'Gate Lion', 8), edenFoe('archangel', 'Gate Archangel', 6),
+      edenFoe('trumpeter', 'Gate Trumpeter', 3), edenFoe('virtue', 'Gate Virtue', 2),
+    ],
+    scrapReward: 14000, coreReward: 32,
+  },
+  {
+    id: 'e02_cloudstair', mapId: EDEN_MAP_ID, code: 'EDEN-02', name: '第二階層', areaName: 'FLOOR 02',
+    description: '雲海から天へ伸びる大理石の階段。足場の外は眼下の雲だけが広がり、翼の羽ばたきとともに車輪の天使が昇ってくる。',
+    threatLevel: 5, cleared: false, unlocked: false, isBoss: false, mapCoords: [-1.3, 0.2, 0.7],
+    enemies: [
+      edenFoe('messenger', 'Stair Messenger', 12), edenFoe('ophanim', 'Stair Ophanim', 8), edenFoe('bullwing', 'Stair Ox', 6),
+      edenFoe('archangel', 'Stair Archangel', 7), edenFoe('trumpeter', 'Stair Trumpeter', 4), edenFoe('virtue', 'Stair Virtue', 2),
+    ],
+    scrapReward: 14800, coreReward: 33,
+  },
+  {
+    id: 'e03_lampstands', mapId: EDEN_MAP_ID, code: 'EDEN-03', name: '第三階層', areaName: 'FLOOR 03',
+    description: '七つの巨大な燭台が炎を揺らす暗い回廊。炎の影から権天使が槍を構えて現れ、香炉の天使が高みから火を降らせる。',
+    threatLevel: 5, cleared: false, unlocked: false, isBoss: false, mapCoords: [-0.6, 0.4, 0.2],
+    enemies: [
+      edenFoe('principality', 'Lamp Principality', 9), edenFoe('censer', 'Lamp Censer', 5), edenFoe('archangel', 'Lamp Archangel', 7),
+      edenFoe('lionwing', 'Lamp Lion', 8), edenFoe('messenger', 'Lamp Messenger', 10), edenFoe('trumpeter', 'Lamp Trumpeter', 3),
+      edenFoe('virtue', 'Lamp Virtue', 2),
+    ],
+    scrapReward: 15600, coreReward: 34,
+  },
+  {
+    id: 'e04_wheelgarden', mapId: EDEN_MAP_ID, code: 'EDEN-04', name: '第四階層', areaName: 'FLOOR 04',
+    description: '白い庭を無数の車輪が漂う。輪の縁に並ぶ数え切れない目が、一斉に侵入者を見つめる。智天使が四つの顔でこちらを窺っている。',
+    threatLevel: 5, cleared: false, unlocked: false, isBoss: false, mapCoords: [0.2, 0.6, -0.4],
+    enemies: [
+      edenFoe('ophanim', 'Garden Ophanim', 12), edenFoe('cherubim', 'Garden Cherubim', 6), edenFoe('powers', 'Garden Powers', 6),
+      edenFoe('bullwing', 'Garden Ox', 6), edenFoe('messenger', 'Garden Messenger', 8), edenFoe('censer', 'Garden Censer', 4),
+      edenFoe('virtue', 'Garden Virtue', 3),
+    ],
+    scrapReward: 16400, coreReward: 36,
+  },
+  {
+    id: 'e05_trumpethall', mapId: EDEN_MAP_ID, code: 'EDEN-05', name: '第五階層', areaName: 'FLOOR 05',
+    description: '黄金のラッパが壁を埋め尽くす大広間。吹き鳴らされる音が床を震わせ、巨躯の主天使が王笏を掲げて広間の中央に立つ。',
+    threatLevel: 5, cleared: false, unlocked: false, isBoss: false, mapCoords: [0.9, 0.8, -1.0],
+    enemies: [
+      edenFoe('trumpeter', 'Hall Trumpeter', 7), edenFoe('dominion', 'Hall Dominion', 4), edenFoe('principality', 'Hall Principality', 8),
+      edenFoe('seraphim', 'Hall Seraphim', 4), edenFoe('lionwing', 'Hall Lion', 8), edenFoe('powers', 'Hall Powers', 5),
+      edenFoe('cherubim', 'Hall Cherubim', 4), edenFoe('virtue', 'Hall Virtue', 3),
+    ],
+    scrapReward: 17200, coreReward: 37,
+  },
+  {
+    id: 'e06_sealvault', mapId: EDEN_MAP_ID, code: 'EDEN-06', name: '第六階層', areaName: 'FLOOR 06',
+    description: '七つの封印が宙を巡る円形の書庫。巻物を守る熾天使が六枚の翼を広げ、玉座の形をした座天使が書架の間を歩く。',
+    threatLevel: 5, cleared: false, unlocked: false, isBoss: false, mapCoords: [1.6, 1.0, -0.4],
+    enemies: [
+      edenFoe('seraphim', 'Vault Seraphim', 7), edenFoe('throne', 'Vault Throne', 3), edenFoe('cherubim', 'Vault Cherubim', 6),
+      edenFoe('ophanim', 'Vault Ophanim', 8), edenFoe('archangel', 'Vault Archangel', 7), edenFoe('powers', 'Vault Powers', 5),
+      edenFoe('censer', 'Vault Censer', 4), edenFoe('virtue', 'Vault Virtue', 3),
+    ],
+    scrapReward: 18200, coreReward: 38,
+  },
+  {
+    id: 'e07_glasssea', mapId: EDEN_MAP_ID, code: 'EDEN-07', name: '第七階層', areaName: 'FLOOR 07',
+    description: '火の混じる玻璃の海が果てなく広がる。水晶の尖塔の間を、楽園の門番が炎の剣を回しながら歩み寄り、天使の軍勢が列を成す。',
+    threatLevel: 5, cleared: false, unlocked: false, isBoss: false, mapCoords: [1.3, 1.2, 0.5],
+    enemies: [
+      edenFoe('gatekeeper', 'Sea Gatekeeper', 3), edenFoe('throne', 'Sea Throne', 3), edenFoe('seraphim', 'Sea Seraphim', 6),
+      edenFoe('principality', 'Sea Principality', 8), edenFoe('lionwing', 'Sea Lion', 8), edenFoe('bullwing', 'Sea Ox', 6),
+      edenFoe('ophanim', 'Sea Ophanim', 6), edenFoe('trumpeter', 'Sea Trumpeter', 5), edenFoe('virtue', 'Sea Virtue', 3),
+    ],
+    scrapReward: 19300, coreReward: 40,
+  },
+  {
+    id: 'e08_choirdome', mapId: EDEN_MAP_ID, code: 'EDEN-08', name: '第八階層', areaName: 'FLOOR 08',
+    description: '幾重もの回廊が円蓋を囲む聖歌隊の間。歌声のように降り注ぐ光弾の中、主天使と門番が円陣を組み、熾天使が高みから見下ろす。',
+    threatLevel: 5, cleared: false, unlocked: false, isBoss: false, mapCoords: [0.5, 1.3, 1.1],
+    enemies: [
+      edenFoe('dominion', 'Choir Dominion', 5), edenFoe('gatekeeper', 'Choir Gatekeeper', 4), edenFoe('seraphim', 'Choir Seraphim', 7),
+      edenFoe('cherubim', 'Choir Cherubim', 7), edenFoe('trumpeter', 'Choir Trumpeter', 6), edenFoe('censer', 'Choir Censer', 5),
+      edenFoe('archangel', 'Choir Archangel', 7), edenFoe('powers', 'Choir Powers', 6), edenFoe('virtue', 'Choir Virtue', 4),
+    ],
+    scrapReward: 20500, coreReward: 42,
+  },
+  {
+    id: 'e09_throneroad', mapId: EDEN_MAP_ID, code: 'EDEN-09', name: '第九階層', areaName: 'FLOOR 09',
+    description: '遥か遠くの玉座へ続く白い大路。両脇に並ぶ燭台の炎の中を、楽園の全軍が総出で迎え撃つ。大路の先、生命の樹が光を放っている。',
+    threatLevel: 5, cleared: false, unlocked: false, isBoss: false, mapCoords: [-0.4, 1.5, 1.2],
+    enemies: [
+      edenFoe('throne', 'Road Throne', 4), edenFoe('dominion', 'Road Dominion', 5), edenFoe('gatekeeper', 'Road Gatekeeper', 4),
+      edenFoe('seraphim', 'Road Seraphim', 7), edenFoe('cherubim', 'Road Cherubim', 7), edenFoe('ophanim', 'Road Ophanim', 8),
+      edenFoe('principality', 'Road Principality', 8), edenFoe('lionwing', 'Road Lion', 6), edenFoe('bullwing', 'Road Ox', 6),
+      edenFoe('censer', 'Road Censer', 4), edenFoe('virtue', 'Road Virtue', 4),
+    ],
+    scrapReward: 22000, coreReward: 44,
+  },
+  {
+    id: 'e10_eden_boss', mapId: EDEN_MAP_ID, code: 'EDEN-10-BOSS', name: '第十階層', areaName: 'FLOOR 10 [PROJECT EDEN BOSS]',
+    description: '【PROJECT EDEN ボス戦】生命の樹の園に立つ熾天使『SERAPHIEL』。四つの顔、六枚の翼、目に満ちた車輪の冠。炎の剣と天の裁きが降り注ぐ中、天使の軍勢が侵入者を取り囲む。',
+    threatLevel: 5, cleared: false, unlocked: false, isBoss: true, mapCoords: [0.0, 1.8, -0.6],
+    enemies: [
+      edenFoe('boss_eden', 'SERAPHIEL [BOSS]', 1), edenFoe('virtue', 'Garden Virtue', 2), edenFoe('seraphim', 'Guard Seraphim', 3),
+      edenFoe('archangel', 'Guard Archangel', 6), edenFoe('messenger', 'Guard Messenger', 10), edenFoe('lionwing', 'Guard Lion', 6),
+      edenFoe('cherubim', 'Guard Cherubim', 3), edenFoe('trumpeter', 'Guard Trumpeter', 3),
+    ],
+    scrapReward: 36000, coreReward: 70,
+  },
+];
+
 export const INITIAL_MISSIONS: Mission[] = [
   // ================= MAP 1: GOTHIC METROPOLIS (SECTOR 01 - 07) =================
   {
@@ -2883,6 +3037,7 @@ export const INITIAL_MISSIONS: Mission[] = [
     scrapReward: 16000,
     coreReward: 46,
   },
+  ...EDEN_MISSIONS,
 ];
 
 /**

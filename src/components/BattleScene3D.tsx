@@ -40,6 +40,7 @@ import { buildBloomEnemy, isBloomType } from '../utils/bloomEnemyModels';
 import { buildMagmaEnemy, isMagmaType } from '../utils/magmaEnemyModels';
 import { buildStormEnemy, isStormType } from '../utils/stormEnemyModels';
 import { buildNeonEnemy, isNeonType } from '../utils/neonEnemyModels';
+import { buildEdenEnemy, isEdenType } from '../utils/edenEnemyModels';
 import { buildIceEnemy, isIceType } from '../utils/iceEnemyModels';
 import { updateApexEnemy, isApexCategory, apexDamageGate, apexOnDeath } from '../utils/apexEnemyAI';
 import { CombatHazards, HurtFn } from '../utils/combatHazards';
@@ -49,7 +50,7 @@ import { getReloadStyle, getWeaponReloadPose, getReloadPolish, getReloadEvents, 
 import { getPistolReloadPose } from '../utils/pistolReload';
 import { GUARD_PROFILES, MELEE_READY_POSE, LANCE_MAX_CHARGE, buildGuardFx, updateGuardFx } from '../utils/meleeGuards';
 import { getNodeLevel, scaledEffectValue } from '../data/nodeLevels';
-import { WORLD_MAPS, effectiveScrapReward } from '../data/initialData';
+import { WORLD_MAPS, effectiveScrapReward, EDEN_DIFFICULTY, EDEN_MAP_ID, EDEN_INFO } from '../data/initialData';
 import { NetSession } from '../utils/netplay';
 import { CoopBattle, CoopEnemy, ReviveInfo } from '../utils/coopBattle';
 import {
@@ -105,6 +106,7 @@ const ENEMY_BASE_CATEGORY: Record<string, EnemyCategory> = {
   boss_magma: 'boss',
   boss_storm: 'boss',
   boss_neon: 'boss',
+  boss_eden: 'boss',
   // MAP 7 (OVERGROWN SECTOR): plant units borrow the AI of a base category
   bramble: 'hound',
   mushling: 'hound',
@@ -135,6 +137,22 @@ const ENEMY_BASE_CATEGORY: Record<string, EnemyCategory> = {
   cipher: 'stalker',
   signaltower: 'sentry',
   mainframe: 'golem',
+  // PROJECT EDEN: angel units borrow the AI of a base category
+  messenger: 'drone',
+  ophanim: 'drone',
+  cherubim: 'drone',
+  seraphim: 'drone',
+  lionwing: 'hound',
+  bullwing: 'hound',
+  archangel: 'stalker',
+  principality: 'stalker',
+  powers: 'stalker',
+  trumpeter: 'sentry',
+  censer: 'sentry',
+  dominion: 'golem',
+  gatekeeper: 'golem',
+  throne: 'golem',
+  virtue: 'mender',
 };
 const baseCategoryOf = (typeId: string): EnemyCategory =>
   ENEMY_BASE_CATEGORY[typeId] ?? (typeId as EnemyCategory);
@@ -603,7 +621,7 @@ export interface StageEnvironmentTheme {
   nameJa: string;
   subName: string;
   scenery: SceneryId;
-  style: 'apartments' | 'sanctuary' | 'foundry' | 'cathedral' | 'spire' | 'dock' | 'monolith' | 'omega' | 'abyss' | 'relic' | 'cryo' | 'overgrow' | 'molten' | 'storm' | 'neon';
+  style: 'apartments' | 'sanctuary' | 'foundry' | 'cathedral' | 'spire' | 'dock' | 'monolith' | 'omega' | 'abyss' | 'relic' | 'cryo' | 'overgrow' | 'molten' | 'storm' | 'neon' | 'eden';
 }
 
 export function getStageTheme(missionId: string): StageEnvironmentTheme {
@@ -1451,6 +1469,127 @@ export function getStageTheme(missionId: string): StageEnvironmentTheme {
         scenery: 'neoncore',
         style: 'neon',
       };
+    // ================= PROJECT EDEN =================
+    case 'e01_gate':
+      return {
+        floorRoughness: 0.2,
+        floorMetalness: 0.1,
+        gridMain: 0xfbbf24,
+        gridSub: 0xfff3c0,
+        accentColor: 0xfbbf24,
+        nameJa: '第一階層',
+        subName: 'PROJECT EDEN // FLOOR 01',
+        scenery: 'edengate',
+        style: 'eden',
+      };
+    case 'e02_cloudstair':
+      return {
+        floorRoughness: 0.25,
+        floorMetalness: 0.1,
+        gridMain: 0x93c5fd,
+        gridSub: 0xffffff,
+        accentColor: 0x93c5fd,
+        nameJa: '第二階層',
+        subName: 'PROJECT EDEN // FLOOR 02',
+        scenery: 'cloudstair',
+        style: 'eden',
+      };
+    case 'e03_lampstands':
+      return {
+        floorRoughness: 0.3,
+        floorMetalness: 0.2,
+        gridMain: 0xfb923c,
+        gridSub: 0xfde68a,
+        accentColor: 0xfb923c,
+        nameJa: '第三階層',
+        subName: 'PROJECT EDEN // FLOOR 03',
+        scenery: 'lampstands',
+        style: 'eden',
+      };
+    case 'e04_wheelgarden':
+      return {
+        floorRoughness: 0.3,
+        floorMetalness: 0.1,
+        gridMain: 0xfde68a,
+        gridSub: 0xd9f99d,
+        accentColor: 0xfde68a,
+        nameJa: '第四階層',
+        subName: 'PROJECT EDEN // FLOOR 04',
+        scenery: 'wheelgarden',
+        style: 'eden',
+      };
+    case 'e05_trumpethall':
+      return {
+        floorRoughness: 0.25,
+        floorMetalness: 0.2,
+        gridMain: 0xfcd34d,
+        gridSub: 0xfef3c7,
+        accentColor: 0xfcd34d,
+        nameJa: '第五階層',
+        subName: 'PROJECT EDEN // FLOOR 05',
+        scenery: 'trumpethall',
+        style: 'eden',
+      };
+    case 'e06_sealvault':
+      return {
+        floorRoughness: 0.3,
+        floorMetalness: 0.2,
+        gridMain: 0xc4b5fd,
+        gridSub: 0xfde68a,
+        accentColor: 0xc4b5fd,
+        nameJa: '第六階層',
+        subName: 'PROJECT EDEN // FLOOR 06',
+        scenery: 'sealvault',
+        style: 'eden',
+      };
+    case 'e07_glasssea':
+      return {
+        floorRoughness: 0.12,
+        floorMetalness: 0.4,
+        gridMain: 0x7dd3fc,
+        gridSub: 0xffedd5,
+        accentColor: 0x7dd3fc,
+        nameJa: '第七階層',
+        subName: 'PROJECT EDEN // FLOOR 07',
+        scenery: 'glasssea',
+        style: 'eden',
+      };
+    case 'e08_choirdome':
+      return {
+        floorRoughness: 0.25,
+        floorMetalness: 0.2,
+        gridMain: 0xfde68a,
+        gridSub: 0xffffff,
+        accentColor: 0xfde68a,
+        nameJa: '第八階層',
+        subName: 'PROJECT EDEN // FLOOR 08',
+        scenery: 'choirdome',
+        style: 'eden',
+      };
+    case 'e09_throneroad':
+      return {
+        floorRoughness: 0.2,
+        floorMetalness: 0.15,
+        gridMain: 0xfbbf24,
+        gridSub: 0xffffff,
+        accentColor: 0xfbbf24,
+        nameJa: '第九階層',
+        subName: 'PROJECT EDEN // FLOOR 09',
+        scenery: 'throneroad',
+        style: 'eden',
+      };
+    case 'e10_eden_boss':
+      return {
+        floorRoughness: 0.15,
+        floorMetalness: 0.2,
+        gridMain: 0xfbbf24,
+        gridSub: 0xffffff,
+        accentColor: 0xfde68a,
+        nameJa: '第十階層',
+        subName: 'PROJECT EDEN // FLOOR 10',
+        scenery: 'edencore',
+        style: 'eden',
+      };
 
     case 'm12_omega_boss':
     default:
@@ -1784,6 +1923,29 @@ export function buildStageEnvironment(mission: Mission, scene: THREE.Scene): Cov
       );
       strip.position.set(0, h / 2, 1.0);
       group.add(strip);
+    } else if (theme.style === 'eden') {
+      // Pearl marble column with gold bands and a floating halo
+      const col = new THREE.Mesh(
+        new THREE.CylinderGeometry(1.35, 1.6, h, 14),
+        new THREE.MeshStandardMaterial({ color: 0xf4efe4, metalness: 0.1, roughness: 0.35, emissive: 0xfff4d8, emissiveIntensity: 0.18 })
+      );
+      col.position.y = h / 2;
+      group.add(col);
+      [0.4, h + 0.1].forEach((ry) => {
+        const band = new THREE.Mesh(
+          new THREE.CylinderGeometry(1.72, 1.72, 0.32, 14),
+          new THREE.MeshStandardMaterial({ color: 0xe8b83c, metalness: 0.7, roughness: 0.3, emissive: 0xb8860b, emissiveIntensity: 0.3 })
+        );
+        band.position.y = ry;
+        group.add(band);
+      });
+      const halo = new THREE.Mesh(
+        new THREE.TorusGeometry(1.5, 0.07, 8, 28),
+        new THREE.MeshBasicMaterial({ color: theme.accentColor })
+      );
+      halo.rotation.x = Math.PI / 2;
+      halo.position.y = h + 1.1;
+      group.add(halo);
     } else if (theme.style === 'monolith' || theme.style === 'omega') {
       // Obsidian Obelisk Monolith
       const mono = new THREE.Mesh(
@@ -2000,11 +2162,13 @@ const STAGE_ORDER = Object.keys(STAGE_DIFFICULTY);
 /** 推奨武器レベル: 武器ダメージ(+3%/Lv)が敵HP倍率の約75%に追いつく目安 (5刻み) */
 export function getRecommendedWeaponLevel(mission: Mission, hard = false): number {
   const d = getMissionDifficultyMultiplier(mission, hard);
-  return Math.min(300, Math.max(0, Math.round(((d - 1) / 0.03) * 0.75 / 5) * 5));
+  return Math.min(500, Math.max(0, Math.round(((d - 1) / 0.03) * 0.75 / 5) * 5));
 }
 
 export function getMissionDifficultyMultiplier(mission?: Mission, hard = false): number {
   if (!mission) return 1.0;
+  // PROJECT EDEN は専用の倍率 (ハード版は無い)
+  if (EDEN_DIFFICULTY[mission.id] !== undefined) return EDEN_DIFFICULTY[mission.id];
   const ramp = STAGE_DIFFICULTY[mission.id];
   if (hard && ramp !== undefined) {
     const idx = STAGE_ORDER.indexOf(mission.id) + HARD_STAGE_OFFSET;
@@ -2036,6 +2200,8 @@ export function buildEnemyModel(type: string, group: THREE.Group): { hp: number;
   if (storm) return storm;
   const neon = buildNeonEnemy(type, group);
   if (neon) return neon;
+  const edenFoe = buildEdenEnemy(type, group);
+  if (edenFoe) return edenFoe;
   const ice = buildIceEnemy(type, group);
   if (ice) return ice;
   const std = (color: number, metalness = 0.82, roughness = 0.38) => new THREE.MeshStandardMaterial({ color, metalness, roughness });
@@ -2589,7 +2755,7 @@ function createEnemyInstance(
   const { hp, speed, damage } = buildEnemyModel(enDef.enemyTypeId, group);
 
   // Apply archetype-specific procedural surface textures to solid enemy armor (elites carry their own).
-  const elite = isEliteType(enDef.enemyTypeId) || isApexType(enDef.enemyTypeId) || isBloomType(enDef.enemyTypeId) || isIceType(enDef.enemyTypeId) || isMagmaType(enDef.enemyTypeId) || isStormType(enDef.enemyTypeId) || isNeonType(enDef.enemyTypeId);
+  const elite = isEliteType(enDef.enemyTypeId) || isApexType(enDef.enemyTypeId) || isBloomType(enDef.enemyTypeId) || isIceType(enDef.enemyTypeId) || isMagmaType(enDef.enemyTypeId) || isStormType(enDef.enemyTypeId) || isNeonType(enDef.enemyTypeId) || isEdenType(enDef.enemyTypeId);
   const enemyTexture = elite || isBossDef ? null : createEnemySurfaceTexture(enDef.enemyTypeId);
   if (enemyTexture) group.traverse((obj) => {
     if (!(obj instanceof THREE.Mesh)) return;
@@ -11531,7 +11697,7 @@ export const BattleScene3D: React.FC<BattleScene3DProps> = ({
               <span className="sc-tag-ja">作戦開始</span>
             </div>
             <div className="sc-center">
-              <div className="sc-code">{mapDef?.badge ?? `MAP ${mission.mapId}`} <b>//</b> {mission.code}</div>
+              <div className="sc-code">{mapDef?.badge ?? (mission.mapId === EDEN_MAP_ID ? EDEN_INFO.badge : `MAP ${mission.mapId}`)} <b>//</b> {mission.code}</div>
               <div className="sc-name">{mission.name}</div>
               <div className="sc-area">{mission.areaName.replace(/\s*\[.*?\]\s*/g, '')}</div>
               <div className="sc-meta">

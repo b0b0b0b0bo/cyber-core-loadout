@@ -6,6 +6,7 @@ import { OVERGROW_CONFIG, OVERGROW_BUILDERS } from './stageSceneryOvergrow';
 import { MOLTEN_CONFIG, MOLTEN_BUILDERS } from './stageSceneryMolten';
 import { STORM_CONFIG, STORM_BUILDERS } from './stageSceneryStorm';
 import { NEON_CONFIG, NEON_BUILDERS } from './stageSceneryNeon';
+import { EDEN_CONFIG, EDEN_BUILDERS } from './stageSceneryEden';
 
 /**
  * Stage scenery: per-mission sky, atmosphere, lighting and set dressing.
@@ -25,7 +26,8 @@ export type SceneryId =
   | 'canopy' | 'greenhouse' | 'mycelium' | 'swamp' | 'rootworks' | 'bloomhill' | 'mycothrone'
   | 'ashfall' | 'smeltery' | 'lavafalls' | 'slagyard' | 'furnace' | 'forgehall' | 'magmacore'
   | 'stormfront' | 'cloudsea' | 'thunderhead' | 'rodfield' | 'eyewall' | 'arraydeck' | 'stormcore'
-  | 'neonavenue' | 'neonarcade' | 'datastream' | 'billboardspire' | 'serverblock' | 'skyway' | 'neoncore';
+  | 'neonavenue' | 'neonarcade' | 'datastream' | 'billboardspire' | 'serverblock' | 'skyway' | 'neoncore'
+  | 'edengate' | 'cloudstair' | 'lampstands' | 'wheelgarden' | 'trumpethall' | 'sealvault' | 'glasssea' | 'choirdome' | 'throneroad' | 'edencore';
 
 interface SkyOptions {
   top: number; horizon: number; bottom: number;
@@ -66,6 +68,7 @@ export const SCENERY_CONFIG: Record<SceneryId, SceneryConfig> = {
   ...MOLTEN_CONFIG,
   ...STORM_CONFIG,
   ...NEON_CONFIG,
+  ...EDEN_CONFIG,
   apartments: {
     sky: { top: 0x04070f, horizon: 0x26364c, bottom: 0x0a0f18, exponent: 0.55, clouds: { color: 0x2a3446, coverage: 0.62, speed: 0.012, opacity: 0.9 }, horizonGlow: { color: 0xf59e0b, strength: 0.22 } },
     fogColor: 0x182231, fogDensity: 0.0125,
@@ -2513,6 +2516,7 @@ const BUILDERS: Record<SceneryId, (ctx: Ctx) => void> = {
   ...MOLTEN_BUILDERS,
   ...STORM_BUILDERS,
   ...NEON_BUILDERS,
+  ...EDEN_BUILDERS,
 };
 
 export interface StageScenery {

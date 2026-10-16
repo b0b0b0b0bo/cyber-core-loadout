@@ -83,7 +83,8 @@ export interface EnemyType {
   size: number;
 }
 
-export type MapId = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
+/** 11 は PROJECT EDEN (WORLD MAP の外にある高難度コンテンツ) */
+export type MapId = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11;
 
 export interface WorldMapDef {
   id: MapId;
@@ -100,7 +101,7 @@ export interface WorldMapDef {
 
 export interface Mission {
   id: string;
-  mapId: MapId; // 1: Gothic Metropolis, 2: Orbital Citadel, 3: Deep Research, 4: Tidal Ruins, 5: Silent Wastes, 6: Frozen Archive, 7: Overgrown Sector, 8: Molten Foundry, 9: Storm Array, 10: Neon District
+  mapId: MapId; // 1: Gothic Metropolis, 2: Orbital Citadel, 3: Deep Research, 4: Tidal Ruins, 5: Silent Wastes, 6: Frozen Archive, 7: Overgrown Sector, 8: Molten Foundry, 9: Storm Array, 10: Neon District, 11: PROJECT EDEN
   code: string;
   name: string;
   areaName: string;

@@ -8,7 +8,7 @@ import {
   PlayerStats,
   BattleResult,
 } from './types';
-import { WORLD_MAPS } from './data/initialData';
+import { WORLD_MAPS, EDEN_MAP_ID } from './data/initialData';
 import { loadGameState, saveGameState, clearGameSave } from './utils/save';
 import { sound } from './utils/sound';
 import { MissionMap3D } from './components/MissionMap3D';
@@ -309,7 +309,9 @@ export default function App() {
         const idx = updated.findIndex((m) => m.id === result.missionId);
         if (idx >= 0 && idx + 1 < updated.length) {
           updated[idx + 1] = { ...updated[idx + 1], unlocked: true };
-          setSelectedMission(updated[idx + 1]);
+          // WORLD MAP の最後のステージから PROJECT EDEN へは自動で飛ばさない (EDEN へは WORLD MAP の専用ボタンから入る)
+          const toEden = updated[idx + 1].mapId === EDEN_MAP_ID && updated[idx].mapId !== EDEN_MAP_ID;
+          setSelectedMission(toEden ? updated[idx] : updated[idx + 1]);
         } else if (idx >= 0) {
           setSelectedMission(updated[idx]);
         }

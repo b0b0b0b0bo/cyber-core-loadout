@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import { BattleResult } from '../types';
-import { WORLD_MAPS } from '../data/initialData';
+import { WORLD_MAPS, EDEN_REQUIRED_BOSS_ID } from '../data/initialData';
 import { sound } from '../utils/sound';
 import confetti from 'canvas-confetti';
 import { usePalette, cutCorners } from '../theme';
@@ -124,6 +124,14 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({ result, onRetry, onG
       });
       const next = WORLD_MAPS[clearedIdx + 1];
       const cur = WORLD_MAPS[clearedIdx];
+      if (result.missionId === EDEN_REQUIRED_BOSS_ID) {
+        unlocks.push({
+          icon: <Unlock className="w-3.5 h-3.5" />,
+          title: 'PROJECT EDEN // 楽園計画 解放',
+          body: 'WORLD MAP の外に白い門が開いた。天使だけが棲む高難度フロア (推奨武器 Lv300〜)',
+          color: '#f5c542',
+        });
+      }
       if (next) {
         unlocks.push({
           icon: <Globe className="w-3.5 h-3.5" />,

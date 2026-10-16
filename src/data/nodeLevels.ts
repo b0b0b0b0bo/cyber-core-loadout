@@ -37,8 +37,8 @@ export const nodeBreakCost = (node: SkillNode, level: number, breaks: Record<str
   return { cost: Math.round(node.cost * 12 * k * k), beacons: 15 * k * k };
 };
 
-/** 武器ダメージ強化: 最大 Lv300。Lv100 で最初の突破、以降 50 レベルごと */
-export const WEAPON_MAX_LEVEL = 300;
+/** 武器ダメージ強化: 最大 Lv500。Lv100 で最初の突破、以降 50 レベルごと (突破は計8回) */
+export const WEAPON_MAX_LEVEL = 500;
 export const WEAPON_FIRST_BREAK = 100;
 export const WEAPON_BREAK_INTERVAL = 50;
 
@@ -46,8 +46,10 @@ export const weaponLevelCap = (breaks = 0): number => Math.min(WEAPON_MAX_LEVEL,
 
 export const weaponBreakCost = (level: number, breaks = 0): { cost: number; beacons: number } | null => {
   if (level < weaponLevelCap(breaks) || level >= WEAPON_MAX_LEVEL) return null;
-  const k = breaks + 1; // 1回目 Lv100 ... 4回目 Lv250
-  return { cost: 15000 * k * k, beacons: 30 * k * k };
+  const k = breaks + 1; // 1回目 Lv100 ... 8回目 Lv450
+  // 4回目まではこれまで通りの二乗カーブ。5回目以降は一定ペースで増やす (二乗のままだと8回目が膨らみすぎる)
+  if (k <= 4) return { cost: 15000 * k * k, beacons: 30 * k * k };
+  return { cost: 240000 + 150000 * (k - 4), beacons: 480 + 120 * (k - 4) };
 };
 
 export const weaponUpgradeCost = (level: number): number => Math.round(35 + level * 8);

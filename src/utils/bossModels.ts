@@ -13,7 +13,7 @@ import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeom
  * enrage colour shift per phase.
  */
 
-export type BossKind = 'golgotha' | 'golem' | 'titan' | 'kraken' | 'warden' | 'frost' | 'myco' | 'magma' | 'storm' | 'neon';
+export type BossKind = 'golgotha' | 'golem' | 'titan' | 'kraken' | 'warden' | 'frost' | 'myco' | 'magma' | 'storm' | 'neon' | 'eden';
 export const BOSS_SCALE = 1.8;
 
 export const bossKindOf = (typeId: string): BossKind | null =>
@@ -27,6 +27,7 @@ export const bossKindOf = (typeId: string): BossKind | null =>
     : typeId === 'boss_magma' ? 'magma'
     : typeId === 'boss_storm' ? 'storm'
     : typeId === 'boss_neon' ? 'neon'
+    : typeId === 'boss_eden' ? 'eden'
     : null;
 
 export interface BossStats {
@@ -46,6 +47,7 @@ export const BOSS_STATS: Record<BossKind, BossStats> = {
   magma: { hp: 8800, speed: 3.8, damage: 78 },
   storm: { hp: 9400, speed: 3.6, damage: 82 },
   neon: { hp: 10000, speed: 3.7, damage: 86 },
+  eden: { hp: 14000, speed: 3.8, damage: 92 },
 };
 
 interface BossRefs {
@@ -1712,6 +1714,237 @@ function buildNeon(rig: THREE.Group): BossRefs {
   return k.refs;
 }
 
+// ───────────────────────── SERAPHIEL (PROJECT EDEN floor 10) ─────────────────────────
+// A biblically-accurate white angel: a robed pillar of light crowned by a head of four faces (man, lion, ox, eagle),
+// six eye-studded wings (Isaiah 6: two veil the face, two cover the feet, two carry it), nested gold halo-wheels full of
+// eyes (Ezekiel 1), a flaming sword in one hand and a lily-crowned sceptre in the other, with four ophanim in orbit.
+function buildEden(rig: THREE.Group): BossRefs {
+  const k = createKit('eden', rig, 0xff7a2a);
+  const { armor, solid, glow, halo, rbox, cyl, sph, cone, torus, mk, grp, V, strut, blade, spin, orbit, pulse, sway } = k;
+  const texRobe = panelTexture('#ece7d8', '#d9b95c', 4);
+  const texPlate = panelTexture('#f7f3e8', '#e8c872', 5);
+  const texGold = panelTexture('#d4a02a', '#fff0a8', 3);
+  const robe = armor(0xf6f2e6, texRobe, 0.3, 0.5);
+  const plate = armor(0xffffff, texPlate, 0.4, 0.4);
+  const gold = armor(0xe0ac30, texGold, 0.85, 0.28);
+  const skin = solid(0xf5e6d2, 0.05, 0.6);
+  const dark = solid(0x2c2418, 0.3, 0.6);
+  const featherM = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xfff4d8, emissiveIntensity: 0.55, roughness: 0.6, metalness: 0.0, side: THREE.DoubleSide });
+  const armW = new THREE.MeshStandardMaterial({ color: 0xfffaf0, emissive: 0xfff4d8, emissiveIntensity: 0.5, roughness: 0.5, metalness: 0.05 });
+  const featherG = new THREE.MeshStandardMaterial({ color: 0xfff0b8, emissive: 0xffd87a, emissiveIntensity: 0.6, roughness: 0.5, metalness: 0.0, side: THREE.DoubleSide });
+  const gleam = glow(0xfde68a, true);
+  const gleamW = glow(0xffffff, true);
+  const fire = glow(0xffa84a, true);
+  const white = glow(0xffffff);
+  const haloG = halo(0xfde68a, 0.26, true);
+  const haloW = halo(0xffffff, 0.22, false);
+  const haloFire = halo(0xff9d3a, 0.3, true);
+
+  const feather = (len: number, w: number, t: number) => {
+    const sh = new THREE.Shape();
+    sh.moveTo(0, 0);
+    sh.bezierCurveTo(w * 0.7, len * 0.15, w * 0.6, len * 0.7, 0, len);
+    sh.bezierCurveTo(-w * 0.35, len * 0.65, -w * 0.45, len * 0.2, 0, 0);
+    const g = new THREE.ExtrudeGeometry(sh, { depth: t, bevelEnabled: true, bevelThickness: t * 0.4, bevelSize: t * 0.4, bevelSegments: 1, curveSegments: 8 });
+    g.translate(0, 0, -t / 2);
+    return g;
+  };
+  /** A watching eye lying on a surface and looking down -Z. */
+  const eyeAt = (parent: THREE.Object3D, r: number, x: number, y: number, z: number) => {
+    const g = grp(parent, x, y, z);
+    mk(g, sph(r, 10), white).scale.z = 0.5;
+    mk(g, sph(r * 0.55, 8), dark, 0, 0, -r * 0.22).scale.z = 0.4;
+    mk(g, sph(r * 0.2, 6), white, r * 0.12, r * 0.12, -r * 0.4);
+    mk(g, torus(r * 1.08, r * 0.15, 16, 6), gold, 0, 0, 0);
+    return g;
+  };
+
+  // ── robe: a tall tapering pillar with a golden sash and fold ribs ──
+  const robeGeo = new THREE.LatheGeometry([V(2.9, 0.25, 0), V(2.6, 0.9, 0), V(1.9, 2.0, 0), V(1.25, 3.2, 0), V(1.15, 3.9, 0), V(1.35, 4.7, 0), V(0.9, 5.3, 0), V(0.45, 5.6, 0)].map((v) => new THREE.Vector2(v.x, v.y)), 28);
+  mk(rig, robeGeo, robe, 0, 0, 0).material = new THREE.MeshPhysicalMaterial({ color: 0xfaf6ea, emissive: 0xfff2d0, emissiveIntensity: 0.4, roughness: 0.55, metalness: 0.05, clearcoat: 0.3, side: THREE.DoubleSide });
+  for (let i = 0; i < 14; i++) {
+    const a = (i / 14) * Math.PI * 2;
+    mk(rig, new THREE.BoxGeometry(0.06, 3.2, 0.05), i % 2 ? gleam : gleamW, Math.cos(a) * 1.95, 1.9, Math.sin(a) * 1.95, 0.22, -a + Math.PI / 2, 0);
+  }
+  mk(rig, torus(1.28, 0.2, 36, 12), gold, 0, 3.6, 0, Math.PI / 2, 0, 0);
+  mk(rig, torus(1.3, 0.05, 36, 8), gleamW, 0, 3.8, 0, Math.PI / 2, 0, 0);
+  mk(rig, torus(2.75, 0.12, 40, 8), gold, 0, 0.55, 0, Math.PI / 2, 0, 0);
+  // chest: a luminous core inside a gold lattice
+  const core = mk(rig, sph(0.5, 18), white, 0, 4.35, -1.1);
+  const coreHalo = mk(rig, sph(1.1, 16), haloG, 0, 4.35, -1.1);
+  pulse(core, 0.16); pulse(coreHalo, 0.12);
+  mk(rig, torus(0.62, 0.06, 28, 8), gold, 0, 4.35, -1.1, 0, 0, 0);
+  mk(rig, torus(0.62, 0.06, 28, 8), gold, 0, 4.35, -1.1, Math.PI / 2, 0, 0);
+  mk(rig, torus(1.4, 0.18, 32, 10), gold, 0, 5.1, 0, Math.PI / 2 + 0.12, 0, 0); // collar
+  [-1, 1].forEach((s) => {
+    const pa = mk(rig, sph(0.9), armW, s * 1.75, 4.85, 0.1);
+    pa.scale.set(1, 0.7, 1);
+    mk(rig, torus(0.9, 0.07, 24, 8), gold, s * 1.75, 4.85, 0.1, 0, Math.PI / 2, 0);
+  });
+
+  // ── head of four faces (man / lion / ox / eagle) ──
+  const headRing = grp(rig, 0, 6.2, 0);
+  const faceTypes: ('man' | 'lion' | 'ox' | 'eagle')[] = ['man', 'lion', 'ox', 'eagle'];
+  faceTypes.forEach((kind, i) => {
+    const f = grp(headRing, 0, 0, 0, 0, (i * Math.PI) / 2, 0);
+    mk(f, sph(0.78, 16), kind === 'eagle' ? plate : skin, 0, 0, -0.1).scale.set(1, 1.12, 0.92);
+    for (const sx of [-1, 1]) {
+      mk(f, sph(0.13, 8), kind === 'eagle' ? gleam : white, sx * 0.28, 0.15, -0.73);
+      mk(f, sph(0.06, 6), dark, sx * 0.28, 0.15, -0.84);
+    }
+    if (kind === 'man') {
+      mk(f, cone(0.1, 0.28, 5), skin, 0, -0.05, -0.82, -Math.PI / 2, 0, 0);
+      mk(f, rbox(0.4, 0.07, 0.07, 0.03), pearlOrDark(), 0, -0.34, -0.74);
+    } else if (kind === 'lion') {
+      mk(f, torus(0.95, 0.24, 24, 10), featherG, 0, 0, -0.05);
+      mk(f, rbox(0.46, 0.34, 0.36, 0.12), gold, 0, -0.18, -0.8);
+    } else if (kind === 'ox') {
+      [-1, 1].forEach((sx) => {
+        mk(f, torus(0.62, 0.11, 18, 8, Math.PI * 0.85), gold, sx * 0.72, 0.5, -0.1, 0, sx * 0.3, sx > 0 ? 0.55 : Math.PI - 0.55);
+        mk(f, cone(0.14, 0.7, 6), gleamW, sx * 1.35, 1.0, -0.1, 0, 0, -sx * 0.25);
+      });
+      mk(f, rbox(0.52, 0.34, 0.36, 0.12), plate, 0, -0.22, -0.8);
+    } else {
+      mk(f, cone(0.2, 0.7, 5), gold, 0, -0.1, -1.0, -Math.PI / 2 - 0.35, 0, 0);
+      [-1, 1].forEach((sx) => mk(f, cone(0.16, 0.9, 4), plate, sx * 0.6, 0.55, 0.05, 0, 0, -sx * 0.5));
+    }
+  });
+  function pearlOrDark() { return dark; }
+  spin(headRing, 'y', 0.18);
+  // crown of rays and the halo above
+  const crown = grp(rig, 0, 7.4, 0);
+  for (let i = 0; i < 12; i++) {
+    const a = (i / 12) * Math.PI * 2;
+    mk(crown, cone(0.12, i % 2 ? 0.9 : 1.5, 4), gold, Math.cos(a) * 0.9, 0.3, Math.sin(a) * 0.9, 0, 0, 0);
+  }
+  mk(crown, torus(0.95, 0.07, 36, 8), gold, 0, 0, 0, Math.PI / 2, 0, 0);
+  const crownHalo = mk(rig, sph(1.5, 16), haloG, 0, 7.6, 0);
+  const crownOrb = mk(rig, sph(0.4, 14), white, 0, 7.8, 0);
+  pulse(crownHalo, 0.14); pulse(crownOrb, 0.18);
+
+  // ── halo wheels: nested gold rings studded with eyes (Ezekiel's ophanim), standing like a mandala behind the figure ──
+  const wheelRing = (R: number, speed: number, eyes: number, z: number) => {
+    const sp = grp(rig, 0, 5.6, z);
+    mk(sp, torus(R, 0.1, 80, 10), gold);
+    mk(sp, torus(R * 0.96, 0.035, 80, 8), gleamW);
+    mk(sp, torus(R * 0.88, 0.03, 80, 8), gleam);
+    for (let i = 0; i < eyes; i++) {
+      const a = (i / eyes) * Math.PI * 2;
+      const e = mk(sp, sph(0.34, 10), white, Math.cos(a) * R, Math.sin(a) * R, 0);
+      e.scale.set(1, 1, 0.55);
+      mk(sp, sph(0.17, 8), dark, Math.cos(a) * R, Math.sin(a) * R, -0.1);
+      mk(sp, torus(0.38, 0.045, 14, 6), gold, Math.cos(a) * R, Math.sin(a) * R, 0);
+    }
+    for (let i = 0; i < 6; i++) mk(sp, new THREE.BoxGeometry(R * 1.9, 0.04, 0.04), gleam, 0, 0, 0, 0, 0, (i / 6) * Math.PI);
+    spin(sp, 'z', speed);
+    return sp;
+  };
+  wheelRing(5.2, 0.16, 12, 2.6);
+  wheelRing(7.4, -0.11, 16, 3.0);
+  wheelRing(9.6, 0.08, 20, 3.4);
+  mk(rig, sph(3.2, 18), haloW, 0, 5.6, 2.0);
+
+  // ── six eye-studded wings ──
+  const sixWing = (s: number, x: number, y: number, len: number, baseZ: number, idx: number, goldTips: boolean) => {
+    const pivot = grp(rig, s * x, y, 1.0, 0, s * 0.28, baseZ);
+    const n = 12;
+    for (let row = 0; row < 3; row++) {
+      for (let i = 0; i < n; i++) {
+        const t = i / (n - 1);
+        const ang = (t - 0.5) * 1.45;
+        const L = len * (row === 0 ? 1 : row === 1 ? 0.72 : 0.46) * (1 - 0.28 * Math.abs(t - 0.5) * 2);
+        const f = mk(pivot, feather(L, L * 0.17, 0.07), goldTips && i % 4 === 0 ? featherG : featherM, 0, 0.0, row * 0.07, 0, 0, -s * ang);
+        f.position.z += i * 0.002;
+      }
+    }
+    mk(pivot, rbox(0.4, 0.6, 0.26, 0.08), gold, 0, 0.1, 0);
+    for (let i = 0; i < 5; i++) eyeAt(pivot, 0.2 - i * 0.015, -s * (0.1 + (i % 2) * 0.3), len * (0.2 + i * 0.13), -0.22);
+    k.refs.wings.push({ obj: pivot, baseZ, side: s, idx });
+    return pivot;
+  };
+  [-1, 1].forEach((s) => {
+    sixWing(s, 1.4, 6.5, 4.4, s * 0.55, 0, false);           // upper pair: veils the face
+    sixWing(s, 1.9, 5.3, 7.6, -s * 0.8, 1, true);            // middle pair: spread and carrying
+    sixWing(s, 1.1, 3.3, 4.6, s * (Math.PI - 0.4), 2, false); // lower pair: covers the feet
+  });
+
+  // ── arms: right wields a flaming sword, left a lily-crowned sceptre ──
+  [-1, 1].forEach((s) => {
+    const arm = k.armPivot(s, s * 1.75, 4.6, 0);
+    const elbow = V(s * 2.3, 3.4, -0.3);
+    strut(arm, V(s * 1.75, 4.6, 0), elbow, 0.5, 0.42, armW);
+    mk(arm, torus(0.5, 0.07, 20, 8), gold, s * 2.0, 4.0, -0.15, 0.4, 0, s * 0.8);
+    mk(arm, sph(0.44), gold, elbow.x, elbow.y, elbow.z);
+    const wrist = V(s * 2.5, 2.2, -1.0);
+    strut(arm, elbow, wrist, 0.44, 0.36, armW);
+    mk(arm, rbox(0.7, 0.4, 0.7, 0.14), gold, wrist.x, wrist.y, wrist.z);
+    mk(arm, sph(0.36), skin, wrist.x, wrist.y - 0.35, wrist.z - 0.1);
+    if (s > 0) {
+      // sword of fire pointing forward-down from the hand
+      const sw = grp(arm, wrist.x, wrist.y - 0.3, wrist.z - 0.1, -Math.PI / 2 + 0.25, 0, 0);
+      mk(sw, blade(5.6, 0.7, 0.2), white, 0, 0, 0);
+      mk(sw, blade(5.9, 1.3, 0.16), fire, 0, 0, -0.14);
+      mk(sw, blade(6.2, 2.2, 0.12), haloFire, 0, -0.1, -0.24);
+      mk(sw, rbox(2.0, 0.28, 0.32, 0.08), gold, 0, -0.1, 0);
+      mk(sw, cyl(0.12, 0.14, 1.0, 8), gold, 0, -0.65, 0);
+      mk(sw, sph(0.22), gold, 0, -1.2, 0);
+      for (let i = 0; i < 6; i++) {
+        const em = mk(sw, sph(0.12), fire, 0, 1.0 + i * 0.85, -0.3);
+        pulse(em, 0.2);
+      }
+    } else {
+      const sc = grp(arm, wrist.x, wrist.y - 0.3, wrist.z - 0.1, -0.15, 0, 0);
+      mk(sc, cyl(0.1, 0.12, 5.2, 8), gold, 0, 1.2, 0);
+      mk(sc, sph(0.34), gold, 0, 3.9, 0);
+      const orb = mk(sc, sph(0.62), white, 0, 4.7, 0);
+      mk(sc, sph(1.3), haloG, 0, 4.7, 0);
+      pulse(orb, 0.16);
+      for (let i = 0; i < 6; i++) {
+        const a = (i / 6) * Math.PI * 2;
+        mk(sc, feather(0.9, 0.34, 0.06), featherM, Math.cos(a) * 0.4, 4.0, Math.sin(a) * 0.4, 0.5 * Math.sin(a), a, -0.5 * Math.cos(a));
+      }
+      mk(sc, torus(0.85, 0.06, 28, 8), gold, 0, 4.7, 0, Math.PI / 2, 0, 0);
+    }
+  });
+
+  // ── ophanim in orbit: four wheels within wheels, rims full of eyes ──
+  for (let i = 0; i < 4; i++) {
+    const g = new THREE.Group();
+    const wa = grp(g), wb = grp(g, 0, 0, 0, Math.PI / 2, 0, 0);
+    for (const w of [wa, wb]) {
+      mk(w, torus(1.1, 0.12, 36, 10), gold);
+      mk(w, torus(0.9, 0.04, 36, 8), gleam);
+      for (let e = 0; e < 8; e++) {
+        const a = (e / 8) * Math.PI * 2;
+        mk(w, sph(0.13, 8), white, Math.cos(a) * 1.1, Math.sin(a) * 1.1, 0).scale.z = 0.5;
+        mk(w, sph(0.065, 6), dark, Math.cos(a) * 1.1, Math.sin(a) * 1.1, 0.05);
+      }
+    }
+    mk(g, sph(0.26, 10), white);
+    mk(g, sph(0.6, 10), haloG);
+    spin(wa, 'z', 0.9 + i * 0.1); spin(wb, 'y', -1.1 - i * 0.1);
+    rig.add(g);
+    orbit(g, 8.6 + (i % 2) * 0.9, 3.2 + (i % 3) * 1.4, i * (Math.PI / 2), 0.2 + i * 0.015, 0.5);
+  }
+  // drifting feathers of light
+  for (let i = 0; i < 18; i++) {
+    const g = new THREE.Group();
+    mk(g, feather(0.9, 0.3, 0.04), i % 3 === 0 ? featherG : featherM);
+    rig.add(g);
+    orbit(g, 6.4 + (i % 5) * 0.6, 0.8 + (i % 7) * 1.1, i * 0.35, 0.34 + (i % 4) * 0.03, 0.4);
+  }
+  // pillar of light behind, golden rings on the floor
+  mk(rig, new THREE.CylinderGeometry(2.6, 3.6, 12, 28, 1, true), new THREE.MeshBasicMaterial({ color: 0xfff3c0, transparent: true, opacity: 0.07, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }), 0, 6, 0.8);
+  spin(mk(rig, torus(6.8, 0.08, 64, 6), gleam, 0, 0.12, 0, Math.PI / 2, 0, 0), 'z', 0.2);
+  spin(mk(rig, torus(5.0, 0.05, 56, 6), gleamW, 0, 0.12, 0, Math.PI / 2, 0, 0), 'z', -0.35);
+  for (let i = 0; i < 8; i++) {
+    const a = (i / 8) * Math.PI * 2;
+    sway(mk(rig, cone(0.15, 1.1, 4), gleam, Math.cos(a) * 3.9, 0.5, Math.sin(a) * 3.9), 'y', 0.3, 1, i);
+  }
+  void haloW;
+  return k.refs;
+}
+
 export function buildBossModel(kind: BossKind, group: THREE.Group): BossStats {
   const rig = new THREE.Group();
   rig.scale.setScalar(BOSS_SCALE);
@@ -1726,6 +1959,7 @@ export function buildBossModel(kind: BossKind, group: THREE.Group): BossStats {
     : kind === 'magma' ? buildMagma(rig)
     : kind === 'storm' ? buildStorm(rig)
     : kind === 'neon' ? buildNeon(rig)
+    : kind === 'eden' ? buildEden(rig)
     : buildTitan(rig);
   group.userData.bossRefs = refs;
   return BOSS_STATS[kind];

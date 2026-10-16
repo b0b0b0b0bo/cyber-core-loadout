@@ -20,7 +20,7 @@ export interface StageTextureSet {
   panel: StageMaps;
 }
 
-type Style = 'apartments' | 'sanctuary' | 'foundry' | 'cathedral' | 'spire' | 'dock' | 'monolith' | 'omega' | 'abyss' | 'relic' | 'cryo' | 'overgrow' | 'molten' | 'storm' | 'neon';
+type Style = 'apartments' | 'sanctuary' | 'foundry' | 'cathedral' | 'spire' | 'dock' | 'monolith' | 'omega' | 'abyss' | 'relic' | 'cryo' | 'overgrow' | 'molten' | 'storm' | 'neon' | 'eden';
 
 interface Theme {
   style: Style;
@@ -296,6 +296,7 @@ const PALETTE: Record<Style, { floor: string; wall: string }> = {
   molten: { floor: '#6a5a54', wall: '#76645c' },
   storm: { floor: '#5c6a84', wall: '#66748e' },
   neon: { floor: '#4a4670', wall: '#58548a' },
+  eden: { floor: '#e8e4da', wall: '#efeadf' },
 };
 
 const S = 1024;
@@ -421,6 +422,19 @@ function paintFloor(theme: Theme): StageMaps {
       s.glow((c) => { for (let k = 0; k < 4; k++) { c.moveTo(0, 130 + k * 250); for (let x = 0; x <= S; x += 32) c.lineTo(x, 130 + k * 250 + Math.sin(x * 0.02 + k) * 16); } }, accent, 4);
       s.glow((c) => c.arc(S / 2, S / 2, 210, 0, Math.PI * 2), '#67e8f9', 5);
       s.glow((c) => { for (let k = 0; k < 6; k++) { const a = k * Math.PI / 3; c.moveTo(S / 2 + Math.cos(a) * 210, S / 2 + Math.sin(a) * 210); c.lineTo(S / 2 + Math.cos(a) * 320, S / 2 + Math.sin(a) * 320); } }, accent, 3);
+      break;
+    }
+    case 'eden': { // pale pearl marble: gold inlay rings, rose-window medallion and soft light veins
+      grid(4, (x, y, w) => s.panel(x, y, w, w, base, { gap: 3, bevel: 3, vary: 0.04, rough: 0.16 }));
+      s.mottle(220, 245, 0.06, '255,250,230'); s.grime(4);
+      for (let i = 0; i < 14; i++) s.crack(s.rnd() * S, s.rnd() * S, 80 + s.rnd() * 150, s.rnd() * 6.28);
+      const cx = S / 2, cy = S / 2;
+      s.glow((c) => c.arc(cx, cy, 320, 0, Math.PI * 2), accent, 5);
+      s.glow((c) => c.arc(cx, cy, 230, 0, Math.PI * 2), '#fff7d6', 3);
+      s.glow((c) => c.arc(cx, cy, 110, 0, Math.PI * 2), accent, 4);
+      s.glow((c) => { for (let k = 0; k < 12; k++) { const a = k * Math.PI / 6; c.moveTo(cx + Math.cos(a) * 110, cy + Math.sin(a) * 110); c.lineTo(cx + Math.cos(a) * 320, cy + Math.sin(a) * 320); } }, '#fde68a', 2.5);
+      s.glow((c) => { c.moveTo(0, 128); c.lineTo(S, 128); c.moveTo(0, 896); c.lineTo(S, 896); }, accent, 3);
+      for (let k = 0; k < 8; k++) s.rivet(60 + (k % 4) * 30, 60 + Math.floor(k / 4) * 30, 4);
       break;
     }
     case 'cryo': { // frosted deck plates: ice veins, cyan data traces, hex cooling inlay
@@ -755,6 +769,20 @@ function paintWall(theme: Theme): StageMaps {
         }
       }
       s.vertGrime(10);
+      break;
+    }
+    case 'eden': { // white marble colonnade: fluted pilasters with gold capitals, feather relief and halo medallions
+      for (let i = 0; i < 4; i++) s.panel(i * 256, 0, 256, S, base, { gap: 5, bevel: 5, vary: 0.04, rough: 0.2, metalTone: 0.3 });
+      s.mottle(220, 245, 0.05, '255,250,235'); s.vertGrime(4);
+      for (let i = 0; i < 4; i++) {
+        const ox = i * 256;
+        s.glow((c) => { c.moveTo(ox + 30, 40); c.lineTo(ox + 30, 984); c.moveTo(ox + 226, 40); c.lineTo(ox + 226, 984); }, '#fbbf24', 3);
+        s.glow((c) => c.arc(ox + 128, 210, 56, 0, Math.PI * 2), '#fde68a', 3);
+        s.glow((c) => c.arc(ox + 128, 210, 30, 0, Math.PI * 2), '#fbbf24', 2);
+        s.glow((c) => { for (let k = 0; k < 7; k++) { c.moveTo(ox + 70, 420 + k * 70); c.quadraticCurveTo(ox + 128, 450 + k * 70, ox + 186, 420 + k * 70); } }, '#fcd34d', 2);
+        s.glowRect(ox + 100, 860, 56, 14, '#fbbf24');
+      }
+      s.vertGrime(4);
       break;
     }
     case 'relic': { // sun-glyph plates of fused glass with gold trim

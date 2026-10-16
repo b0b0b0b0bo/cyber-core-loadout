@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { MapId, Mission, WorldMapDef } from '../types';
-import { WORLD_MAPS, effectiveScrapReward } from '../data/initialData';
+import { WORLD_MAPS, effectiveScrapReward, EDEN_MAP_ID, EDEN_REQUIRED_BOSS_ID, EDEN_REQUIRED_BOSS_NAME } from '../data/initialData';
+import { ProjectEden } from './ProjectEden';
 import { sound } from '../utils/sound';
 import { getEnemyThumbnail } from '../utils/enemyThumbnails';
 import {
@@ -31,6 +32,7 @@ import {
   ChevronsLeft,
   Play,
   Navigation,
+  Sparkles,
 } from 'lucide-react';
 import { getRecommendedWeaponLevel } from './BattleScene3D';
 import { usePalette, cutCorners } from '../theme';
@@ -86,7 +88,13 @@ interface MissionMap3DProps {
   onUnlockAll?: () => void;
 }
 
-export const MissionMap3D: React.FC<MissionMap3DProps> = ({ missions, baseMissions, selectedMission, onSelectMission, onStartMission, hardMode, onToggleHard, onUnlockAll }) => {
+interface WorldMapViewProps extends MissionMap3DProps {
+  /** PROJECT EDEN へ入る (MAP10 のボス撃破で解放) */
+  onOpenEden: () => void;
+  edenUnlocked: boolean;
+}
+
+const WorldMapView: React.FC<WorldMapViewProps> = ({ missions, baseMissions, selectedMission, onSelectMission, onStartMission, hardMode, onToggleHard, onUnlockAll, onOpenEden, edenUnlocked }) => {
   useEffect(() => {
     if (!onUnlockAll) return;
     const onKey = (e: KeyboardEvent) => {
@@ -924,6 +932,32 @@ export const MissionMap3D: React.FC<MissionMap3DProps> = ({ missions, baseMissio
                 </>
               );
             })()}
+            <button
+              onClick={() => {
+                if (!edenUnlocked) {
+                  sound.playDefeat();
+                  setLockNotice(`【PROJECT EDEN ロック中】MAP 10 のボス「${EDEN_REQUIRED_BOSS_NAME}」を撃破すると解放されます！`);
+                  setTimeout(() => setLockNotice(null), 4000);
+                  return;
+                }
+                sound.playUiClick();
+                onOpenEden();
+              }}
+              title="PROJECT EDEN // 楽園計画 (推奨武器 Lv300〜)"
+              className="flex items-center gap-2 pl-2.5 pr-3 py-2 cursor-pointer transition-all hover:brightness-105"
+              style={{
+                clipPath: cutCorners(8),
+                background: edenUnlocked ? 'linear-gradient(135deg, #fff8e0, #f5c542)' : HUD.isDark ? 'rgba(15,23,42,0.6)' : 'rgba(226,232,240,0.6)',
+                color: edenUnlocked ? '#5a3d00' : 'var(--hud-dim)',
+                boxShadow: edenUnlocked ? '0 0 18px rgba(245,197,66,0.5)' : 'none',
+              }}
+            >
+              {edenUnlocked ? <Sparkles className="w-5 h-5" /> : <Lock className="w-4 h-4" />}
+              <span className="text-left leading-tight">
+                <span className="block text-[10px] font-cyber tracking-[0.18em] opacity-90">EXTRA</span>
+                <span className="block text-[11px] font-cyber font-bold tracking-wider">PROJECT EDEN</span>
+              </span>
+            </button>
           </div>
 
           {viewMode === 'map' && (
@@ -1211,6 +1245,44 @@ export const MissionMap3D: React.FC<MissionMap3DProps> = ({ missions, baseMissio
         )}
       </aside>
     </div>
+  );
+};
+
+export const MissionMap3D: React.FC<MissionMap3DProps> = (props) => {
+  const { missions, baseMissions, selectedMission, onSelectMission } = props;
+  const [edenOpen, setEdenOpen] = useState(selectedMission?.mapId === EDEN_MAP_ID);
+  const isWorld = (m: Mission) => m.mapId !== EDEN_MAP_ID;
+  const edenMissions = baseMissions.filter((m) => !isWorld(m));
+  const edenUnlocked = baseMissions.some((m) => m.id === EDEN_REQUIRED_BOSS_ID && m.cleared) || edenMissions.some((m) => m.unlocked);
+
+  if (edenOpen && edenUnlocked) {
+    return (
+      <ProjectEden
+        missions={edenMissions}
+        selectedMission={selectedMission}
+        onSelectMission={onSelectMission}
+        onStartMission={props.onStartMission}
+        onBack={() => {
+          setEdenOpen(false);
+          const neonBoss = baseMissions.find((m) => m.id === EDEN_REQUIRED_BOSS_ID);
+          if (neonBoss) onSelectMission(neonBoss);
+        }}
+      />
+    );
+  }
+  return (
+    <WorldMapView
+      {...props}
+      missions={missions.filter(isWorld)}
+      baseMissions={baseMissions.filter(isWorld)}
+      selectedMission={selectedMission && isWorld(selectedMission) ? selectedMission : null}
+      edenUnlocked={edenUnlocked}
+      onOpenEden={() => {
+        const first = edenMissions.find((m) => m.unlocked && !m.cleared) || edenMissions.find((m) => m.unlocked) || edenMissions[0];
+        if (first) onSelectMission(first);
+        setEdenOpen(true);
+      }}
+    />
   );
 };
 

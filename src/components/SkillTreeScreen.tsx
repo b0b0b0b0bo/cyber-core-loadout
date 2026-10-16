@@ -1323,7 +1323,7 @@ export const SkillTreeScreen: React.FC<SkillTreeScreenProps> = ({
                         </div>
                       </div>
 
-                      {/* 解放済み武器ノード選択時：武器ダメージ強化 (Lv.300まで可能 (100以降は限界突破が必要)) */}
+                      {/* 解放済み武器ノード選択時：武器ダメージ強化 (Lv.500まで可能 (100以降は限界突破が必要)) */}
                       {isUnlockedNode && (
                         <div className="bg-hud-tile p-3.5 border border-hud-accent/25">
                           <div className="flex items-center justify-between mb-2.5">
