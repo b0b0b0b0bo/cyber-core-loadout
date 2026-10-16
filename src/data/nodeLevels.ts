@@ -63,7 +63,7 @@ export const nodeEffectScale = (level: number, node?: SkillNode): number =>
 
 /** level -> level+1 に必要な SCRAP */
 export const nodeUpgradeCost = (node: SkillNode, level: number): number =>
-  node.id === 'core_root' ? 100 + 20 * level : Math.max(40, Math.round(node.cost * 0.3 * level));
+  node.id === 'core_root' ? 85 + 17 * level : Math.max(40, Math.round(node.cost * 0.3 * level));
 
 /** level -> level+1 に必要な BEACON (中枢コアの強化のみ必要) */
 export const nodeUpgradeBeaconCost = (node: SkillNode, level: number): number =>

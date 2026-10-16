@@ -10582,7 +10582,7 @@ export const BattleScene3D: React.FC<BattleScene3DProps> = ({
           });
 
           // BEACON は稀にドロップ (強い敵ほど出やすい)
-          const beaconChance = enemy.typeId === 'mite' || enemy.typeId === 'mushling' ? 0 : BEACON_DROP_CHANCE[enemy.category] ?? 0.03;
+          const beaconChance = enemy.typeId === 'mite' || enemy.typeId === 'mushling' ? 0 : Math.min(1, (BEACON_DROP_CHANCE[enemy.category] ?? 0.03) * 1.5);
           if (Math.random() < beaconChance) {
             const beaconMesh = new THREE.Mesh(
               new THREE.OctahedronGeometry(0.35, 0),

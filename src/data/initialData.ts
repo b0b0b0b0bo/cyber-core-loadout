@@ -1205,7 +1205,7 @@ const EDEN_MISSIONS: Mission[] = [
   },
 ];
 
-export const INITIAL_MISSIONS: Mission[] = [
+const RAW_MISSIONS: Mission[] = [
   // ================= MAP 1: GOTHIC METROPOLIS (SECTOR 01 - 07) =================
   {
     id: 'm1_apartments',
@@ -3042,6 +3042,10 @@ export const INITIAL_MISSIONS: Mission[] = [
   },
   ...EDEN_MISSIONS,
 ];
+
+/** BEACON の入手量を全体的に増やすための倍率 (クリア報酬の表示にも反映される) */
+export const BEACON_REWARD_MULT = 2;
+export const INITIAL_MISSIONS: Mission[] = RAW_MISSIONS.map((m) => ({ ...m, coreReward: Math.round(m.coreReward * BEACON_REWARD_MULT) }));
 
 /**
  * RADIAL GADGET TREE (大拡張ガジェットツリー)
